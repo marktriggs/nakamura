@@ -48,6 +48,9 @@ import org.sakaiproject.nakamura.api.solr.ResourceIndexingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
+
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,9 @@ public class CalendarIndexingHandler implements IndexingHandler {
 
   private static final Logger logger = LoggerFactory
       .getLogger(CalendarIndexingHandler.class);
+
+  private Pattern timestampPattern =
+    Pattern.compile("(\\d{4})(\\d{2})(\\d{2})T(\\d{2})(\\d{2})(\\d{2})Z?");
 
   @Reference(target = "(type=sparse)")
   private ResourceIndexingService resourceIndexingService;
@@ -79,6 +85,24 @@ public class CalendarIndexingHandler implements IndexingHandler {
     resourceIndexingService.removeHandler(SIGNUP_NODE_RT, this);
     resourceIndexingService.removeHandler(SAKAI_EVENT_SIGNUP_PARTICIPANT_RT, this);
   }
+
+
+  /**
+   * Convert an iCal-formatted timestamp to something Solr can handle.
+   * See: http://lucene.apache.org/solr/api/org/apache/solr/schema/DateField.html
+   */
+  private String formatSolrTimestamp(String timestamp) {
+    Matcher m = timestampPattern.matcher(timestamp);
+
+    if (m.matches()) {
+      return String.format("%s-%s-%sT%s:%s:%sZ",
+                           m.group(1), m.group(2), m.group(3),
+                           m.group(4), m.group(5), m.group(6));
+    }
+
+    return null;
+  }
+
 
   /**
    * {@inheritDoc}
@@ -109,9 +133,20 @@ public class CalendarIndexingHandler implements IndexingHandler {
             Object value = content.getProperty(SAKAI_CALENDAR_PROFILE_LINK);
             doc.addField(Authorizable.NAME_FIELD, value);
           } else {
-            Object value = content.getProperty(SAKAI_CALENDAR_PROPERTY_PREFIX + "DTSTART");
-            doc.addField("vcal-DTSTART", value);
+            String value = (String) content.getProperty(SAKAI_CALENDAR_PROPERTY_PREFIX + "DTSTART");
+
+            if (value != null) {
+              String solrDateTime = formatSolrTimestamp(value);
+
+              if (solrDateTime != null) {
+                doc.addField("vcal-DTSTART", solrDateTime);
+              } else {
+                logger.warn("Failed to reformat time stamp: {}",
+                            value);
+              }
+            }
           }
+
           doc.addField(_DOC_SOURCE_OBJECT, content);
           documents.add(doc);
         }
