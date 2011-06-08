@@ -27,9 +27,11 @@ import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_NEEDS_PR
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 
-import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
+import org.apache.felix.scr.annotations.Properties;
+import org.apache.felix.scr.annotations.ReferenceCardinality;
+import org.apache.felix.scr.annotations.ReferencePolicy;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
@@ -46,6 +48,7 @@ import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
 import org.sakaiproject.nakamura.api.doc.ServiceExtension;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
+import org.sakaiproject.nakamura.api.files.FileUploadHandler;
 import org.sakaiproject.nakamura.api.files.FilesConstants;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
@@ -71,12 +74,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 import java.util.Map.Entry;
 
 import javax.jcr.RepositoryException;
@@ -111,6 +117,13 @@ import javax.servlet.http.HttpServletResponse;
           @ServiceResponse(code=500,description="Failure with HTML explanation.")}
 
         ))
+
+@Reference(name = "fileUploadHandler",
+           referenceInterface = FileUploadHandler.class,
+           cardinality = ReferenceCardinality.OPTIONAL_MULTIPLE,
+           policy = ReferencePolicy.DYNAMIC,
+           bind = "bindFileUploadHandler",
+           unbind = "unbindFileUploadHandler")
 public class CreateContentPoolServlet extends SlingAllMethodsServlet {
 
   @Reference
@@ -127,6 +140,31 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
 
   private static final Logger LOGGER = LoggerFactory
       .getLogger(CreateContentPoolServlet.class);
+
+  private Set<FileUploadHandler> fileUploadHandlers = new HashSet<FileUploadHandler>();
+
+  public void bindFileUploadHandler(FileUploadHandler fileUploadHandler) {
+    fileUploadHandlers.add(fileUploadHandler);
+  }
+
+  public void unbindFileUploadHandler(FileUploadHandler fileUploadHandler) {
+    fileUploadHandlers.remove(fileUploadHandler);
+  }
+
+
+  private void notifyFileUploadHandlers(String poolId, String fileName,
+                                        InputStream fileInputStream,
+                                        String userId, boolean isNew) {
+    for (FileUploadHandler fileUploadHandler : fileUploadHandlers) {
+      try {
+        fileUploadHandler.handleFile(poolId, fileName, fileInputStream, userId, isNew);
+      } catch (Throwable t) {
+        LOGGER.error("FileUploadHandler '{}' failed to handle upload of file '{}' for userid '{}': {}",
+                     new Object[] { fileUploadHandler, fileName, userId, t.getMessage()});
+        t.printStackTrace();
+      }
+    }
+  }
 
 
   @Override
@@ -183,11 +221,15 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
               results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)createPoolId,  "item", createFile(createPoolId, null, adminSession, p, au, true).getProperties()));
               statusCode = HttpServletResponse.SC_CREATED;
               fileUpload = true;
+
+              notifyFileUploadHandlers(createPoolId, p.getFileName(), p.getInputStream(), au.getId(), true);
             } else {
               // Add it to the map so we can output something to the UI.
               results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)poolId,  "item", createFile(poolId, alternativeStream, session, p, au, false).getProperties()));
               statusCode = HttpServletResponse.SC_OK;
               fileUpload = true;
+
+              notifyFileUploadHandlers(poolId, p.getFileName(), p.getInputStream(), au.getId(), false);
               break;
             }
 
