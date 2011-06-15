@@ -17,8 +17,6 @@
  */
 package org.sakaiproject.nakamura.api.files;
 
-import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
