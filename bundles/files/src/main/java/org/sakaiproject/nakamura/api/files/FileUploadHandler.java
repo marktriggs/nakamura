@@ -21,8 +21,9 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
 
 public interface FileUploadHandler {
-   void handleFile(String poolId, String fileName, InputStream fileInputStream,
-                   String userId, boolean isNew) throws IOException;
+  Map<String, Object> handleFile(String poolId, String fileName, String mimeType, InputStream fileInputStream,
+                                 String userId, boolean isNew) throws IOException;
 }

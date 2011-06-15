@@ -152,17 +152,43 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
   }
 
 
-  private void notifyFileUploadHandlers(String poolId, String fileName,
-                                        InputStream fileInputStream,
-                                        String userId, boolean isNew) {
+  private void notifyFileUploadHandlers(Content content,
+                                        Session session,
+                                        String poolId, RequestParameter p,
+                                        String userId, boolean isNew)
+    throws AccessDeniedException, StorageClientException
+  {
+    boolean contentChanged = false;
+
+    // A note to the curious: it's safe to repeatedly call p.getInputStream()
+    // because each call yields a newly-created InputStream object (positioned
+    // to the beginning of the file).
     for (FileUploadHandler fileUploadHandler : fileUploadHandlers) {
       try {
-        fileUploadHandler.handleFile(poolId, fileName, fileInputStream, userId, isNew);
+        Map<String,Object> props =
+          fileUploadHandler.handleFile(poolId,
+                                       p.getFileName(),
+                                       (String)content.getProperty(Content.MIMETYPE_FIELD),
+                                       p.getInputStream(),
+                                       userId,
+                                       isNew);
+
+        // Update the content object with any additional properties set by the handler.
+        for (String key : props.keySet()) {
+          contentChanged = true;
+          content.setProperty(key, props.get(key));
+        }
+
       } catch (Throwable t) {
         LOGGER.error("FileUploadHandler '{}' failed to handle upload of file '{}' for userid '{}': {}",
-                     new Object[] { fileUploadHandler, fileName, userId, t.getMessage()});
+                     new Object[] { fileUploadHandler, p.getFileName(), userId, t.getMessage()});
         t.printStackTrace();
       }
+    }
+
+    if (contentChanged) {
+      ContentManager contentManager = session.getContentManager();
+      contentManager.update(content);
     }
   }
 
@@ -214,22 +240,25 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
           .entrySet()) {
         for (RequestParameter p : e.getValue()) {
           if (!p.isFormField()) {
+
             // This is a file upload.
             // Generate an ID and store it.
             if ( poolId == null ) {
               String createPoolId = generatePoolId();
-              results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)createPoolId,  "item", createFile(createPoolId, null, adminSession, p, au, true).getProperties()));
+              Content content = createFile(createPoolId, null, adminSession, p, au, true);
+              results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)createPoolId, "item", content.getProperties()));
               statusCode = HttpServletResponse.SC_CREATED;
               fileUpload = true;
 
-              notifyFileUploadHandlers(createPoolId, p.getFileName(), p.getInputStream(), au.getId(), true);
+              notifyFileUploadHandlers(content, adminSession, createPoolId, p, au.getId(), true);
             } else {
               // Add it to the map so we can output something to the UI.
-              results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)poolId,  "item", createFile(poolId, alternativeStream, session, p, au, false).getProperties()));
+              Content content = createFile(poolId, alternativeStream, session, p, au, false);
+              results.put(p.getFileName(), ImmutableMap.of("poolId", (Object)poolId, "item", content.getProperties()));
               statusCode = HttpServletResponse.SC_OK;
               fileUpload = true;
 
-              notifyFileUploadHandlers(poolId, p.getFileName(), p.getInputStream(), au.getId(), false);
+              notifyFileUploadHandlers(content, adminSession, poolId, p, au.getId(), false);
               break;
             }
 

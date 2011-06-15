@@ -280,17 +280,18 @@ public class CreateContentPoolServletTest {
     // Exceptions in a handler should be caught and logged, but shouldn't stop
     // other handlers from running.
     cp.bindFileUploadHandler(new FileUploadHandler() {
-        public void handleFile(String poolId, String fileName, InputStream fileInputStream,
-                               String userId, boolean isNew) throws IOException {
+        public Map<String,Object> handleFile(String poolId, String fileName, String mimeType, InputStream fileInputStream,
+                                             String userId, boolean isNew) throws IOException {
           throw new RuntimeException("Handler failed!");
         }
       });
 
     final ArrayList notifiedFiles = new ArrayList();
     cp.bindFileUploadHandler(new FileUploadHandler() {
-        public void handleFile(String poolId, String fileName, InputStream fileInputStream,
-                               String userId, boolean isNew) throws IOException {
+        public Map<String,Object> handleFile(String poolId, String fileName, String mimeType, InputStream fileInputStream,
+                                             String userId, boolean isNew) throws IOException {
           notifiedFiles.add(fileName);
+          return new HashMap<String, Object>();
         }
       });
 
