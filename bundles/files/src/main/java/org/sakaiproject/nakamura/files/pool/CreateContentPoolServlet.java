@@ -167,8 +167,7 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
       try {
         Map<String,Object> props =
           fileUploadHandler.handleFile(poolId,
-                                       p.getFileName(),
-                                       (String)content.getProperty(Content.MIMETYPE_FIELD),
+                                       ImmutableMap.copyOf(content.getProperties()),
                                        p.getInputStream(),
                                        userId,
                                        isNew);

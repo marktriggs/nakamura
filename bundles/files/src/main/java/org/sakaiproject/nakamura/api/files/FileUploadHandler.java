@@ -29,19 +29,17 @@ public interface FileUploadHandler {
    * returning them as a Map.
    *
    * @param poolId
-   *          The path of the newly-created content object (a unique identifier).
+   *          The path of the content object for the file (a unique identifier).
    *
-   * @param fileName
-   *          The filename of the uploaded file, as provided by the client.
-   *
-   * @param mimeType
-   *          The mime type of the uploaded file, as provided by the client.
+   * @param contentProperties
+   *          An immutable map of the content object's properties (see sparsemapcontent's org.sakaiproject.nakamura.lite.content.InternalContent for the names of common properties)
    *
    * @param fileInputStream
    *          A FileInputStream on the uploaded content, set to position zero.
    *
    * @param userId
-   *          The name of the logged in client performing the file upload.
+   *          The login name of the client performing the file upload (as per
+   *          request.getRemoteUser())
    *
    * @param isNew
    *          True if the uploaded file is new content.  False if it replaces an existing node.
@@ -49,6 +47,10 @@ public interface FileUploadHandler {
    * @return A map of properties that will be added to the newly-created content object.
    *
    **/
-  Map<String, Object> handleFile(String poolId, String fileName, String mimeType, InputStream fileInputStream,
-                                 String userId, boolean isNew) throws IOException;
+  Map<String, Object> handleFile(String poolId,
+                                 Map<String, Object> contentProperties,
+                                 InputStream fileInputStream,
+                                 String userId,
+                                 boolean isNew)
+    throws IOException;
 }
