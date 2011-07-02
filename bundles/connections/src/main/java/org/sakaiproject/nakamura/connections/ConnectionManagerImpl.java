@@ -78,6 +78,7 @@ import java.util.Set;
 
 
 
+
 /**
  * Service for doing operations with connections.
  */
@@ -177,7 +178,6 @@ public class ConnectionManagerImpl implements ConnectionManager {
    *          the node to check (should be a user contact node)
    * @return the connection state (may be NONE)
    * @throws ConnectionException
-   * @throws RepositoryException
    */
   protected ConnectionState getConnectionState(Content userContactNode)
       throws ConnectionException {
@@ -229,6 +229,12 @@ public class ConnectionManagerImpl implements ConnectionManager {
       // get the contact userstore nodes
       Content thisNode = getOrCreateConnectionNode(adminSession, thisAu, otherAu);
       Content otherNode = getOrCreateConnectionNode(adminSession, otherAu, thisAu);
+      if ( thisNode == null ) {
+        throw new ConnectionException(400,"Failed to connect users, no connection for "+thisUserId );
+      }
+      if ( otherNode == null ) {
+        throw new ConnectionException(400,"Failed to connect users, no connection for "+otherUserId );
+      }
 
       // check the current states
       ConnectionState thisState = getConnectionState(thisNode);
@@ -306,7 +312,6 @@ public class ConnectionManagerImpl implements ConnectionManager {
    *          A session that can be used to modify a group.
    * @throws StorageClientException 
    * @throws AccessDeniedException 
-   * @throws RepositoryException
    */
   protected void removeUserFromGroup(Authorizable thisAu, Authorizable otherAu,
       Session session) throws StorageClientException, AccessDeniedException {
@@ -329,7 +334,6 @@ public class ConnectionManagerImpl implements ConnectionManager {
    *          The session that can be used to locate and manipulate the group
    * @throws StorageClientException 
    * @throws AccessDeniedException 
-   * @throws RepositoryException
    */
   protected void addUserToGroup(Authorizable thisAu, Authorizable otherAu, Session session) throws StorageClientException, AccessDeniedException {
     AuthorizableManager authorizableManager = session.getAuthorizableManager();
@@ -383,10 +387,23 @@ public class ConnectionManagerImpl implements ConnectionManager {
     String nodePath = ConnectionUtils.getConnectionPath(fromUser, toUser);
     ContentManager contentManager = session.getContentManager();
     if (!contentManager.exists(nodePath)) {
+      // Add auth name for sorting (KERN-1924)
+      String firstName = "";
+      String lastName = "";
+      if (toUser.getProperty("firstName") != null) {
+        firstName = (String) toUser.getProperty("firstName");
+      }
+      if (toUser.getProperty("lastName") != null) {
+        lastName = (String) toUser.getProperty("lastName");
+      }
+
       contentManager.update(new Content(nodePath, ImmutableMap.of("sling:resourceType",
           (Object)ConnectionConstants.SAKAI_CONTACT_RT,
             "reference", LitePersonalUtils.getProfilePath(toUser.getId()),
-            "sakai:contactstorepath", ConnectionUtils.getConnectionPathBase(fromUser))));
+ "sakai:contactstorepath",
+          ConnectionUtils.getConnectionPathBase(fromUser), "firstName",
+ firstName,
+          "lastName", lastName)));
     }
     return contentManager.get(nodePath);
   }
@@ -430,7 +447,9 @@ public class ConnectionManagerImpl implements ConnectionManager {
    */
   protected void addArbitraryProperties(Content node, Map<String, Object> properties) {
     for (Entry<String, Object> param : properties.entrySet()) {
-        node.setProperty(param.getKey(), param.getValue());
+        if ( param != null && param.getKey() != null && param.getValue() != null ) {
+          node.setProperty(param.getKey(), param.getValue());
+        }
     }
   }
 
