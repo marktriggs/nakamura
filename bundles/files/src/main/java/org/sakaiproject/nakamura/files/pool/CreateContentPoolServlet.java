@@ -174,8 +174,13 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
                                        userId,
                                        isNew);
 
+        LOGGER.info("FileUploadHandler '{}' returned map: {}",
+                    new Object[] { fileUploadHandler, props });
+
         // Update the content object with any additional properties set by the handler.
         for (String key : props.keySet()) {
+          LOGGER.info("FileUploadHandler '{}' setting key '{}' to value '{}'",
+                      new Object[] { fileUploadHandler, key, props.get(key) });
           contentChanged = true;
           content.setProperty(key, props.get(key));
         }
