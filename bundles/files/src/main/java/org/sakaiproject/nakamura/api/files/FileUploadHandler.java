@@ -47,10 +47,9 @@ public interface FileUploadHandler {
    * @return A map of properties that will be added to the newly-created content object.
    *
    **/
-  Map<String, Object> handleFile(String poolId,
-                                 Map<String, Object> contentProperties,
-                                 InputStream fileInputStream,
-                                 String userId,
-                                 boolean isNew)
+  void handleFile(String poolId,
+                  InputStream fileInputStream,
+                  String userId,
+                  boolean isNew)
     throws IOException;
 }

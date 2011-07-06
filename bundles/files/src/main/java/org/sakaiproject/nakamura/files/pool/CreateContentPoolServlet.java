@@ -154,47 +154,21 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
   }
 
 
-  private void notifyFileUploadHandlers(Content content,
-                                        Session session,
-                                        String poolId, RequestParameter p,
+  private void notifyFileUploadHandlers(String poolId, RequestParameter p,
                                         String userId, boolean isNew)
     throws AccessDeniedException, StorageClientException
   {
-    boolean contentChanged = false;
-
     // A note to the curious: it's safe to repeatedly call p.getInputStream()
     // because each call yields a newly-created InputStream object (positioned
     // to the beginning of the file).
     for (FileUploadHandler fileUploadHandler : fileUploadHandlers) {
       try {
-        Map<String,Object> props =
-          fileUploadHandler.handleFile(poolId,
-                                       ImmutableMap.copyOf(content.getProperties()),
-                                       p.getInputStream(),
-                                       userId,
-                                       isNew);
-
-        LOGGER.info("FileUploadHandler '{}' returned map: {}",
-                    new Object[] { fileUploadHandler, props });
-
-        // Update the content object with any additional properties set by the handler.
-        for (String key : props.keySet()) {
-          LOGGER.info("FileUploadHandler '{}' setting key '{}' to value '{}'",
-                      new Object[] { fileUploadHandler, key, props.get(key) });
-          contentChanged = true;
-          content.setProperty(key, props.get(key));
-        }
-
+        fileUploadHandler.handleFile(poolId, p.getInputStream(), userId, isNew);
       } catch (Throwable t) {
         LOGGER.error("FileUploadHandler '{}' failed to handle upload of file '{}' for userid '{}': {}",
                      new Object[] { fileUploadHandler, p.getFileName(), userId, t.getMessage()});
         t.printStackTrace();
       }
-    }
-
-    if (contentChanged) {
-      ContentManager contentManager = session.getContentManager();
-      contentManager.update(content);
     }
   }
 
@@ -256,7 +230,7 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
               statusCode = HttpServletResponse.SC_CREATED;
               fileUpload = true;
 
-              notifyFileUploadHandlers(content, adminSession, createPoolId, p, au.getId(), true);
+              notifyFileUploadHandlers(createPoolId, p, au.getId(), true);
             } else {
               // Add it to the map so we can output something to the UI.
               Content content = createFile(poolId, alternativeStream, session, p, au, false);
@@ -264,7 +238,7 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
               statusCode = HttpServletResponse.SC_OK;
               fileUpload = true;
 
-              notifyFileUploadHandlers(content, adminSession, poolId, p, au.getId(), false);
+              notifyFileUploadHandlers(poolId, p, au.getId(), false);
               break;
             }
 
