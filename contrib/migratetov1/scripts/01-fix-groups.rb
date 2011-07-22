@@ -229,14 +229,14 @@ def fix_group_membership(group)
                     "sakai:group-joinable" => group_data['properties']['sakai:group-joinable'],
                     "sakai:group-visible" => group_data['properties']['sakai:group-visible'],
                     "sakai:group-description" => "",
-                    "sakai:group-id" => group,
+                    "sakai:group-id" => "group-#{role}",
                     "sakai:group-title" => "#{group} #{role}s"
                 })
 
 
         do_post("/system/userManager/group/#{group}-#{role}.update.json",
                 {
-                    ":manager" => "#{group}-#{role}"
+                    ":manager" => "#{group}-manager"
                 })
 
         userlist.each do |user|
@@ -250,6 +250,23 @@ def fix_group_membership(group)
             end
         end
     end
+
+
+    # Finally, replace the member list with the pseudo groups
+    # groupname-member and groupname-manager.
+    #
+    # FIXME: it would be nice to avoid one post per user here, but net/http
+    # makes sending the same parameter multiple times more difficult than it
+    # should be.
+    #
+    group_data['members'].each do |member|
+        do_post("/system/userManager/group/#{group}.update.json",
+                { ":member@Delete" => member });
+    end
+
+    do_post("/system/userManager/group/#{group}.update.json", { ":member" => "#{group}-manager" });
+    do_post("/system/userManager/group/#{group}.update.json", { ":member" => "#{group}-member" });
+
 end
 
 

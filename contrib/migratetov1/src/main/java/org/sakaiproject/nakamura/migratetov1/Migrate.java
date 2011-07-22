@@ -103,18 +103,21 @@ public class Migrate {
   private void fixAuthorizableTags() throws Exception
   {
     Session session = null;
+    javax.jcr.Session jcrSession = null;
+
     try {
       session = repository.loginAdministrative();
       AuthorizableManager am = session.getAuthorizableManager();
 
-      javax.jcr.Session jcrSession = resourceResolverFactory
+      jcrSession = resourceResolverFactory
         .getResourceResolver(ImmutableMap.of(JcrResourceConstants.AUTHENTICATION_INFO_SESSION, (Object)session))
         .adaptTo(javax.jcr.Session.class);
 
       Iterator<Authorizable> it;
 
-      for (String type : new String[] { "u", "g" }) {
-        it = am.findAuthorizable("type", type, Authorizable.class);
+      for (Class type : new Class[] { Group.class, User.class }) {
+        // Muhahah.  Take that, world!
+        it = am.findAuthorizable("_items", String.valueOf(Integer.MAX_VALUE), type);
 
         while (it.hasNext()) {
           Authorizable au = it.next();
@@ -134,6 +137,10 @@ public class Migrate {
       if (session != null) {
         session.logout();
       }
+
+      if (jcrSession != null) {
+        jcrSession.logout();
+      }
     }
   }
 
@@ -147,7 +154,8 @@ public class Migrate {
 
       Iterator<Authorizable> it;
 
-      it = am.findAuthorizable("type", "g", Authorizable.class);
+      // Muhahah.  Take that, world!
+      it = am.findAuthorizable("_items", String.valueOf(Integer.MAX_VALUE), Group.class);
 
       while (it.hasNext()) {
         Group group = (Group) it.next();
@@ -161,6 +169,28 @@ public class Migrate {
           group.setProperty("sakai:category", "group");
           group.setProperty("sakai:templateid", "simplegroup");
 
+          // Set the rep:group-viewers based on the group's visibility
+          String visibility = (String)group.getProperty("sakai:group-visible");
+
+          if (visibility != null) {
+            if (visibility.equals("logged-in-only")) {
+              group.setProperty("rep:group-viewers", new String[] {group + "-manager",
+                                                                   group + "-member",
+                                                                   "everyone",
+                                                                   group.getId()});
+            } else if (visibility.equals("members-only")) {
+              group.setProperty("rep:group-viewers", new String[] {group + "-manager",
+                                                                   group + "-member",
+                                                                   "everyone",
+                                                                   group.getId()});
+            } else {
+              group.setProperty("rep:group-viewers", new String[] {group + "-manager",
+                                                                   group + "-member",
+                                                                   "everyone",
+                                                                   "anonymous",
+                                                                   group.getId()});
+            }
+          }
 
           am.updateAuthorizable(group);
         } catch (Exception e) {
