@@ -157,11 +157,19 @@ public class LiteGroupJoinRequestServlet extends SlingAllMethodsServlet {
       joinable = Joinable.valueOf(joinability);
     }
 
+    System.err.println ("Hmmm...\n");
+
+    System.err.println(group.getPath()+"/"+LitePersonalUtils.PATH_PUBLIC+"/"+LitePersonalUtils.PATH_AUTH_PROFILE);
+    System.err.println(profileContent);
+
     switch (joinable) {
       case no:
         break;
       case yes:
         // membership is automatically granted
+        System.err.println ("Granting membership to '" + userId + "'");
+        System.err.println ("Group is '" + targetGroup + "'");
+        System.err.println ("Group ID '" + groupId + "'");
         targetGroup.addMember(userId);
         authorizableManager.updateAuthorizable(targetGroup);
         Dictionary<String, Object> eventProps = new Hashtable<String, Object>();
