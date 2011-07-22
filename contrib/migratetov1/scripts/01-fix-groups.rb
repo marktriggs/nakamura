@@ -224,6 +224,10 @@ def fix_group_membership(group)
                 {
                     ":name" => "#{group}-#{role}",
                     "sakai:excludeSearch" => true,
+                    "sakai:pseudoGroup" => "true",
+                    "sakai:pseudogroupparent" => "#{group}",
+                    "sakai:group-joinable" => group_data['properties']['sakai:group-joinable'],
+                    "sakai:group-visible" => group_data['properties']['sakai:group-visible'],
                     "sakai:group-description" => "",
                     "sakai:group-id" => group,
                     "sakai:group-title" => "#{group} #{role}s"
