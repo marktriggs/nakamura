@@ -111,17 +111,26 @@ public class Migrate {
 
       Iterator<Authorizable> it;
 
-      for (String type : new String[] { "u", "g" }) {
-        it = am.findAuthorizable("type", type, Authorizable.class);
+      for (Class type : new Class[] { Group.class, User.class }) {
+        for (int page = 0; ; page++) {
+          it = am.findAuthorizable("_page", String.valueOf(page), type);
 
-        while (it.hasNext()) {
-          Authorizable au = it.next();
+          int processed = 0;
+          while (it.hasNext()) {
+            processed++;
+            Authorizable au = it.next();
 
-          try {
-            fixAuthorizableTags(au, am, jcrSession);
-          } catch (Exception e) {
-            LOGGER.error ("Error fixing authorizable '{}': {}", e, au);
-            e.printStackTrace();
+            try {
+              fixAuthorizableTags(au, am, jcrSession);
+            } catch (Exception e) {
+              LOGGER.error ("Error fixing authorizable '{}': {}", e, au);
+              e.printStackTrace();
+            }
+          }
+
+          if (processed == 0) {
+            // I guess we're done.
+            break;
           }
         }
       }
