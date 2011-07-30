@@ -16,7 +16,7 @@
  * specific language governing permissions and limitations under the License.
  */
 
-package org.sakaiproject.nakamura.connections;
+package org.sakaiproject.nakamura.api.connections;
 
 import static org.sakaiproject.nakamura.api.connections.ConnectionConstants.CONTACT_STORE_NAME;
 

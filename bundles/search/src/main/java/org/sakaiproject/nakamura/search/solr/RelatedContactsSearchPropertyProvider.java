@@ -15,7 +15,7 @@
  * KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package org.sakaiproject.nakamura.connections.search;
+package org.sakaiproject.nakamura.search.solr;
 
 import static org.sakaiproject.nakamura.api.connections.ConnectionConstants.SEARCH_PROP_CONNECTIONSTORE;
 
@@ -36,7 +36,7 @@ import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchPropertyProvider;
-import org.sakaiproject.nakamura.connections.ConnectionUtils;
+import org.sakaiproject.nakamura.api.connections.ConnectionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
