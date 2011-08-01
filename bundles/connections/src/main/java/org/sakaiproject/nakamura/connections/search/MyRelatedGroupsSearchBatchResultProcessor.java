@@ -37,7 +37,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
-import org.sakaiproject.nakamura.api.profile.ProfileService;
+import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.api.search.solr.Query;
 import org.sakaiproject.nakamura.api.search.solr.Result;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchBatchResultProcessor;
@@ -98,7 +98,7 @@ public class MyRelatedGroupsSearchBatchResultProcessor implements
   private SolrSearchServiceFactory searchServiceFactory;
 
   @Reference
-  private ProfileService profileService;
+  private BasicUserInfoService basicUserInfoService;
 
   private static final String DEFAULT_SEARCH_PROC_TARGET = "(&("
       + SolrSearchResultProcessor.DEFAULT_PROCESSOR_PROP + "=true))";
@@ -197,21 +197,14 @@ public class MyRelatedGroupsSearchBatchResultProcessor implements
 
     final javax.jcr.Session jcrSession = request.getResourceResolver().adaptTo(
         javax.jcr.Session.class);
-    try {
-      if (auth != null && !processedUsers.contains(auth.getId())) {
-        writer.object();
-        final ValueMap map = profileService.getProfileMap(auth, jcrSession);
-        ExtendedJSONWriter.writeValueMapInternals(writer, map);
-        writer.endObject();
 
-        processedUsers.add(auth.getId());
-      }
-    } catch (StorageClientException e) {
-      LOG.error(e.getMessage(), e);
-    } catch (AccessDeniedException e) {
-      LOG.error(e.getMessage(), e);
-    } catch (RepositoryException e) {
-      LOG.error(e.getMessage(), e);
+    if (auth != null && !processedUsers.contains(auth.getId())) {
+      writer.object();
+      final Map<String,Object> map = basicUserInfoService.getProperties(auth);
+      ExtendedJSONWriter.writeValueMapInternals(writer, map);
+      writer.endObject();
+
+      processedUsers.add(auth.getId());
     }
   }
 
