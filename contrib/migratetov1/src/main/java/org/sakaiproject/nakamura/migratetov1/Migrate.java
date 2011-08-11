@@ -449,9 +449,16 @@ public class Migrate extends SlingSafeMethodsServlet {
     // User home
     migrateContent(sourceCM.get(userPath));
 
-    // Message box
+    migrateContentTree(sourceCM.get(userPath + "/calendar"),
+                       userPath);
+
+    migrateContentTree(sourceCM.get(userPath + "/contacts"),
+                       userPath);
+
     migrateContentTree(sourceCM.get(userPath + "/message"),
                        userPath);
+
+
 
     // Authprofile nodes
     for (Content obj : allChildren(sourceCM.get(userPath))) {
@@ -716,7 +723,7 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void setWorldReadableGroupWritable(String poolId, Authorizable group)
+  private void setWorldReadableGroupWritable(String poolId, Authorizable group, String objectType)
     throws Exception
   {
     setWorldReadable(poolId);
@@ -726,7 +733,7 @@ public class Migrate extends SlingSafeMethodsServlet {
     AclModification.addAcl(true, Permissions.CAN_READ, group.getId() + "-member", acls);
     AclModification.addAcl(true, Permissions.ALL, group.getId() + "-manager", acls);
 
-    targetACL.setAcl(Security.ZONE_CONTENT, poolId, acls.toArray(new AclModification[acls.size()]));
+    targetACL.setAcl(objectType, poolId, acls.toArray(new AclModification[acls.size()]));
   }
 
 
@@ -892,7 +899,7 @@ public class Migrate extends SlingSafeMethodsServlet {
                                 .put("structure0", structure)
                                 .build()));
 
-    setWorldReadableGroupWritable(poolId, group);
+    setWorldReadableGroupWritable(poolId, group, Security.ZONE_CONTENT);
 
     targetCM.update(makeContent(poolId + "/" + contentId,
                                 new ImmutableMap.Builder<String,Object>()
@@ -920,6 +927,42 @@ public class Migrate extends SlingSafeMethodsServlet {
         LOGGER.info ("DONE\n\n");
       }
     }
+  }
+
+
+  private void createStandardGroup(String groupId, String description, Map<String,Object> properties)
+    throws Exception
+  {
+    String groupPath = "a:" + groupId;
+
+    targetAM.createGroup(groupId, description, properties);
+
+    targetCM.update(makeContent(groupPath,
+                                ImmutableMap.of("sling:resourceType",
+                                                (Object)"sakai/group-home")));
+
+    targetCM.update(makeContent(groupPath + "/calendar",
+                                ImmutableMap.of("sling:resourceType",
+                                                (Object)"sakai/calendar")));
+
+    targetCM.update(makeContent(groupPath + "/contacts",
+                                ImmutableMap.of("sling:resourceType",
+                                                (Object)"sparse/contactstore")));
+
+    targetCM.update(makeContent(groupPath + "/joinrequests",
+                                ImmutableMap.of("sling:resourceType",
+                                                (Object)"sparse/joinrequests")));
+
+    // Create a public authprofile too
+    targetCM.update(makeContent(groupPath + "/public/authprofile",
+                                new ImmutableMap.Builder<String,Object>()
+                                .put("sling:resourceType", "sakai/group-profile")
+                                .put("homePath", "/~" + groupId)
+                                .put("sakai:group-id", groupId)
+                                .put("sakai:group-joinable", properties.get("sakai:group-joinable"))
+                                .put("sakai:group-title", description)
+                                .put("sakai:group-visible", properties.get("sakai:group-visible"))
+                                .build()));
   }
 
 
@@ -982,58 +1025,70 @@ public class Migrate extends SlingSafeMethodsServlet {
     targetAM.createGroup(groupId, (String)group.getProperty("sakai:group-title"), props);
 
     // Group members
-    targetAM.createGroup(groupId + "-member",
-                         String.format("%s (Members)", groupId),
-                         new ImmutableMap.Builder<String,Object>()
-                         .put("type", "g")
-                         .put("principals", groupId)
-                         .put("rep:group-viewers", props.get("rep:group-viewers"))
-                         .put("rep:group-managers", props.get("rep:group-managers"))
-                         .put("sakai:group-joinable", props.get("sakai:group-joinable"))
-                         .put("sakai:group-id", groupId + "-member")
-                         .put("sakai:group-title", String.format("%s (Members)", groupId))
-                         .put("sakai:pseudogroupparent", groupId)
-                         .put("contentCount", 0)
-                         .put("sakai:pseudoGroup", true)
-                         .put("name", groupId + "-member")
-                         .put("email", "unknown")
-                         .put("firstName", "unknown")
-                         .put("lastName", "unknown")
-                         .put("membershipsCount", 1)
-                         .put("sakai:excludeSearch", true)
-                         .put("sakai:group-visible", props.get("sakai:group-visible"))
-                         .put("members", getMembersString(groupId, ((Group)group).getMembers()))
-                         .build());
+    createStandardGroup(groupId + "-member",
+                        String.format("%s (Members)", groupId),
+                        new ImmutableMap.Builder<String,Object>()
+                        .put("type", "g")
+                        .put("principals", groupId)
+                        .put("rep:group-viewers", props.get("rep:group-viewers"))
+                        .put("rep:group-managers", props.get("rep:group-managers"))
+                        .put("sakai:group-joinable", props.get("sakai:group-joinable"))
+                        .put("sakai:group-id", groupId + "-member")
+                        .put("sakai:group-title", String.format("%s (Members)", groupId))
+                        .put("sakai:pseudogroupparent", groupId)
+                        .put("contentCount", 0)
+                        .put("sakai:pseudoGroup", true)
+                        .put("name", groupId + "-member")
+                        .put("email", "unknown")
+                        .put("firstName", "unknown")
+                        .put("lastName", "unknown")
+                        .put("membershipsCount", 1)
+                        .put("sakai:excludeSearch", true)
+                        .put("sakai:group-visible", props.get("sakai:group-visible"))
+                        .put("members", getMembersString(groupId, ((Group)group).getMembers()))
+                        .build());
+    setWorldReadableGroupWritable(groupPath + "-member", group, Security.ZONE_CONTENT);
+    setWorldReadableGroupWritable(groupId + "-member", group, Security.ZONE_AUTHORIZABLES);
 
 
     // Group managers
-    targetAM.createGroup(groupId + "-manager",
-                         String.format("%s (Managers)", groupId),
-                         new ImmutableMap.Builder<String,Object>()
-                         .put("type", "g")
-                         .put("principals", groupId)
-                         .put("rep:group-viewers", props.get("rep:group-viewers"))
-                         .put("rep:group-managers", props.get("rep:group-managers"))
-                         .put("sakai:group-joinable", props.get("sakai:group-joinable"))
-                         .put("sakai:group-id", groupId + "-manager")
-                         .put("sakai:group-title", String.format("%s (Managers)", groupId))
-                         .put("sakai:pseudogroupparent", groupId)
-                         .put("contentCount", 0)
-                         .put("sakai:pseudoGroup", true)
-                         .put("name", groupId + "-manager")
-                         .put("email", "unknown")
-                         .put("firstName", "unknown")
-                         .put("lastName", "unknown")
-                         .put("membershipsCount", 1)
-                         .put("sakai:excludeSearch", true)
-                         .put("sakai:group-visible", props.get("sakai:group-visible"))
-                         .put("members", getMembersString(groupId, ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers()))
-                         .build());
+    createStandardGroup(groupId + "-manager",
+                        String.format("%s (Managers)", groupId),
+                        new ImmutableMap.Builder<String,Object>()
+                        .put("type", "g")
+                        .put("principals", groupId)
+                        .put("rep:group-viewers", props.get("rep:group-viewers"))
+                        .put("rep:group-managers", props.get("rep:group-managers"))
+                        .put("sakai:group-joinable", props.get("sakai:group-joinable"))
+                        .put("sakai:group-id", groupId + "-manager")
+                        .put("sakai:group-title", String.format("%s (Managers)", groupId))
+                        .put("sakai:pseudogroupparent", groupId)
+                        .put("contentCount", 0)
+                        .put("sakai:pseudoGroup", true)
+                        .put("name", groupId + "-manager")
+                        .put("email", "unknown")
+                        .put("firstName", "unknown")
+                        .put("lastName", "unknown")
+                        .put("membershipsCount", 1)
+                        .put("sakai:excludeSearch", true)
+                        .put("sakai:group-visible", props.get("sakai:group-visible"))
+                        .put("members", getMembersString(groupId, ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers()))
+                        .build());
 
+    setWorldReadableGroupWritable(groupPath + "-manager", group, Security.ZONE_CONTENT);
+    setWorldReadableGroupWritable(groupId + "-manager", group, Security.ZONE_AUTHORIZABLES);
 
-
-    // Group home
+    // Group home & standard parts
     migrateContent(sourceCM.get(groupPath));
+
+    migrateContentTree(sourceCM.get(groupPath + "/message"),
+                       groupPath);
+
+    migrateContentTree(sourceCM.get(groupPath + "/calendar"),
+                       groupPath);
+
+    migrateContentTree(sourceCM.get(groupPath + "/contacts"),
+                       groupPath);
 
 
     // Authprofile nodes
