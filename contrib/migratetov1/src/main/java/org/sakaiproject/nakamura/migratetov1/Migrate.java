@@ -444,7 +444,7 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     LOGGER.info("Migrating user: {}", user);
 
-    migrateUserACL(user);
+    migrateAuthorizableACL(user);
 
     // User home
     migrateContent(sourceCM.get(userPath));
@@ -571,19 +571,41 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   // Hm.  Actually this throws dupe key errors and looks a bit like we don't
   // have to do it...
-  private void migrateUserACL(Authorizable user) throws Exception
+  private void migrateAuthorizableACL(Authorizable authorizable) throws Exception
   {
-    migrateACL("n", "AU", user.getId(), true);
+    migrateACL("n", "AU", authorizable.getId(), true);
   }
 
   
-  private InputStream rewriteHash(InputStream in, String old_rid, String new_rid, String columnFamily)
+  private InputStream rewriteHashAndGroupNames(InputStream in,
+                                               String old_rid,
+                                               String new_rid,
+                                               String columnFamily,
+                                               String authId)
     throws Exception
   {
     Map<String, Object> map = new HashMap<String, Object>();
 
     Types.loadFromStream(old_rid, map, in, columnFamily);
-    return Types.storeMapToStream(new_rid, map, columnFamily);
+
+    Map<String,Object> filtered = new HashMap<String,Object>();
+
+    for (String key : map.keySet()) {
+      // *sigh* hacky.  The manager group got renamed from -managers to -manager
+      // *so the existing ACLs will be using the wrong name.
+      filtered.put(key.replaceAll("-managers@", "-manager@"),
+                   map.get(key));
+
+      // ... and we now have a member group that kicks in where the group
+      // membership previously would have.  Add the members to the ACL list as
+      // well.
+      if (key.startsWith(authId + "@")) {
+        filtered.put(key.replaceAll(authId + "@", authId + "-member@"),
+                     map.get(key));
+      }
+    }
+
+    return Types.storeMapToStream(new_rid, filtered, columnFamily);
   }
 
 
@@ -591,6 +613,8 @@ public class Migrate extends SlingSafeMethodsServlet {
     throws Exception
   {
     String old_rid;
+
+    LOGGER.info("MIGRATING ACL FOR: {}", id);
 
     if (id != null && id.startsWith("/")) {
       old_rid = rowHash(keySpace, "ac", columnFamily + id);
@@ -622,7 +646,7 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
 
       insert.setString(1, new_rid);
-      insert.setBinaryStream(2, rewriteHash(rs.getBinaryStream(2), old_rid, new_rid, "ac"));
+      insert.setBinaryStream(2, rewriteHashAndGroupNames(rs.getBinaryStream(2), old_rid, new_rid, "ac", id));
 
       // FIXME: error checking would be nice
       insert.execute();
@@ -1113,6 +1137,8 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     LOGGER.info("Migrating group pages...");
     migratePages(group);
+
+    migrateAuthorizableACL(group);
 
     // tickle the indexer
     targetAM.updateAuthorizable(targetAM.findAuthorizable(groupId));
