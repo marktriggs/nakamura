@@ -72,6 +72,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PrintWriter;
+import java.util.LinkedList;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.HashMap;
@@ -82,6 +84,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.jcr.Binary;
@@ -115,10 +118,13 @@ import org.sakaiproject.nakamura.lite.RepositoryImpl;
 import org.sakaiproject.nakamura.lite.OSGiStoreListener;
 import org.sakaiproject.nakamura.lite.CachingManager;
 import org.sakaiproject.nakamura.lite.storage.StorageClient;
+import org.sakaiproject.nakamura.lite.storage.DisposableIterator;
 import org.sakaiproject.nakamura.lite.storage.StorageClientPool;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClientPool;
 import org.sakaiproject.nakamura.lite.storage.jdbc.JDBCStorageClient;
 import org.sakaiproject.nakamura.lite.types.Types;
+
+import java.util.concurrent.atomic.AtomicBoolean;
 
 
 @SlingServlet(methods = "GET", paths = "/system/migratetov1", generateComponent=true)
@@ -156,8 +162,38 @@ public class Migrate extends SlingSafeMethodsServlet {
   ContentManager targetCM;
   AccessControlManager targetACL;
 
+  // Dashboard bits
+  AtomicBoolean migrationRunning = new AtomicBoolean(false);
+  volatile long usersCreated = 0;
+  volatile long usersMigrated = 0;
+  volatile long pooledContentMigrated = 0;
+  volatile long groupsMigrated = 0;
+  volatile String migrationStatus = "";
+  volatile Date migrationStartTime = null;
+  volatile Date migrationFinishTime = null;
 
-  private void connectToSourceRepository()
+
+  private Map<String,Object> mapOf(Object ... stuff)
+  {
+    Map<String,Object> result = new HashMap<String,Object>();
+
+    for (int i = 0; i < stuff.length; i += 2) {
+      result.put((String)stuff[i], (Object)stuff[i + 1]);
+    }
+
+    return result;
+  }
+
+
+  private String getParam(SlingHttpServletRequest request, String name, String defaultValue)
+  {
+    String param = request.getParameter(name);
+
+    return (param != null) ? param : defaultValue;
+  }
+
+
+  private void connectToSourceRepository(SlingHttpServletRequest request)
     throws Exception
   {
     if (!new File(sourceSlingDir).exists()) {
@@ -178,11 +214,11 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     sourceConnectionPool = new JDBCStorageClientPool();
     ImmutableMap.Builder<String, Object> connectionProps = ImmutableMap.builder();
-    connectionProps.put("jdbc-url", "jdbc:derby:" + sourceSlingDir + "/sparsemap/db");
-    connectionProps.put("jdbc-driver", "org.apache.derby.jdbc.EmbeddedDriver");
+    connectionProps.put("jdbc-url", getParam(request, "jdbc-url", "jdbc:derby:" + sourceSlingDir + "/sparsemap/db"));
+    connectionProps.put("jdbc-driver", getParam(request, "jdbc-driver", "org.apache.derby.jdbc.EmbeddedDriver"));
     connectionProps.put("store-base-dir", sourceStoreDir);
-    connectionProps.put("username", "sa");
-    connectionProps.put("password", "");
+    connectionProps.put("username", getParam(request, "username", "sa"));
+    connectionProps.put("password", getParam(request, "password", ""));
     connectionProps.put("max-wait", 10);
     connectionProps.put("max-idle", 5);
     connectionProps.put("test-on-borrow", true);
@@ -335,31 +371,46 @@ public class Migrate extends SlingSafeMethodsServlet {
     String commentsPath = content.getPath() + "/comments";
     Content sourceComments = sourceCM.get(commentsPath);
     if (sourceComments != null) {
-        Content targetComments = new Content(commentsPath, new HashMap<String, Object>());
-        targetCM.update(targetComments);
-        for (Content obj : allChildren(sourceCM.get(commentsPath))) {
-            targetCM.update(makeContent(obj.getPath(), obj.getOriginalProperties()));        
-        }        
+      Content targetComments = new Content(commentsPath, new HashMap<String, Object>());
+      targetCM.update(targetComments);
+      allChildren(sourceCM.get(commentsPath), new ContentVisitor() {
+          public void visit(Content obj) throws Exception {
+            targetCM.update(makeContent(obj.getPath(), obj.getOriginalProperties()));
+          }
+        });
     }
     
     return true;
   }
 
 
-  private List<Content> allChildren(Content content)
+  interface ContentVisitor {
+    public void visit(Content obj) throws Exception;
+  }
+
+
+  private void allChildrenInternal(ContentVisitor visitor, LinkedList<Content> queue) throws Exception
   {
-    List<Content> result = new ArrayList<Content>(0);
+    while (!queue.isEmpty()) {
+      Content obj = queue.poll();
+      visitor.visit(obj);
 
-    if (content != null) {
-      result.add(content);
-
-      Iterator<Content> it = content.listChildren().iterator();
+      Iterator<Content> it = obj.listChildren().iterator();
       while (it.hasNext()) {
-        result.addAll(allChildren(it.next()));
+        queue.offer(it.next());
       }
     }
+  }
 
-    return result;
+  
+  private void allChildren(Content content, ContentVisitor visitor) throws Exception
+  {
+    if (content != null) {
+      LinkedList<Content> queue = new LinkedList<Content>();
+      queue.add(content);
+
+      allChildrenInternal(visitor, queue);
+    }
   }
 
 
@@ -417,16 +468,20 @@ public class Migrate extends SlingSafeMethodsServlet {
     String userId = user.getId();
     String userPath = "a:" + userId;
 
+    LOGGER.info("Creating user: {} ({})", userId, userPath);
+
     Map<String,Object> props = new HashMap<String,Object>(user.getOriginalProperties());
 
     List<String> filtered = new ArrayList<String>();
 
-    for (String membership : ((String)props.get("principals")).split(";")) {
-      if (membership.endsWith("-managers")) {
-        // Now "-manager"
-        filtered.add(membership.substring(0, membership.length() - 1));
-      } else {
-        filtered.add(membership);
+    if (props.get("principals") != null) {
+      for (String membership : ((String)props.get("principals")).split(";")) {
+        if (membership.endsWith("-managers")) {
+          // Now "-manager"
+          filtered.add(membership.substring(0, membership.length() - 1));
+        } else {
+          filtered.add(membership);
+        }
       }
     }
 
@@ -438,9 +493,9 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   private void migrateUser(Authorizable user) throws Exception
   {
-    String userId = user.getId();
-    String userPath = "a:" + userId;
-    String contactsGroup = "g-contacts-" + userId;
+    final String userId = user.getId();
+    final String userPath = "a:" + userId;
+    final String contactsGroup = "g-contacts-" + userId;
 
     LOGGER.info("Migrating user: {}", user);
 
@@ -461,49 +516,55 @@ public class Migrate extends SlingSafeMethodsServlet {
 
 
     // Authprofile nodes
-    for (Content obj : allChildren(sourceCM.get(userPath))) {
-      if (obj.getPath().matches(".*authprofile.*")) {
-        migrateContent(obj);
+    allChildren(sourceCM.get(userPath), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          if (obj.getPath().matches(".*authprofile.*")) {
+            migrateContent(obj);
 
-        List<AclModification> acls = new ArrayList<AclModification>();
+            List<AclModification> acls = new ArrayList<AclModification>();
      
-        if (obj.getPath().matches("(.*authprofile$|.*authprofile/basic.*)")) {
-          // Set basic profile information readable to logged in users
-          AclModification.addAcl(false,
-                                 Permissions.CAN_READ,
-                                 User.ANON_USER,
-                                 acls);
-          AclModification.addAcl(true,
-                                 Permissions.CAN_READ,
-                                 org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
-                                 acls);
-        } else {
-          // And all others to contacts only
-          AclModification.addAcl(false,
-                                 Permissions.CAN_READ,
-                                 User.ANON_USER,
-                                 acls);
-          AclModification.addAcl(false,
-                                 Permissions.CAN_READ,
-                                 org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
-                                 acls);
-          AclModification.addAcl(true, Permissions.CAN_READ, contactsGroup, acls);
-        }
+            if (obj.getPath().matches("(.*authprofile$|.*authprofile/basic.*)")) {
+              // Set basic profile information readable to logged in users
+              AclModification.addAcl(false,
+                                     Permissions.CAN_READ,
+                                     User.ANON_USER,
+                                     acls);
+              AclModification.addAcl(true,
+                                     Permissions.CAN_READ,
+                                     org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
+                                     acls);
+            } else {
+              // And all others to contacts only
+              AclModification.addAcl(false,
+                                     Permissions.CAN_READ,
+                                     User.ANON_USER,
+                                     acls);
+              AclModification.addAcl(false,
+                                     Permissions.CAN_READ,
+                                     org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
+                                     acls);
+              AclModification.addAcl(true, Permissions.CAN_READ, contactsGroup, acls);
+            }
 
-        AclModification.addAcl(true, Permissions.CAN_ANYTHING, userId, acls);
-        targetACL.setAcl(Security.ZONE_CONTENT, obj.getPath(), acls.toArray(new AclModification[acls.size()]));
-      }
-    }
+            AclModification.addAcl(true, Permissions.CAN_ANYTHING, userId, acls);
+            targetACL.setAcl(Security.ZONE_CONTENT, obj.getPath(), acls.toArray(new AclModification[acls.size()]));
+          }
+        }
+      });
 
     // public profile
-    for (Content obj : allChildren(sourceCM.get(userPath + "/public/profile"))) {
-      migrateContent(obj);
-    }
+    allChildren(sourceCM.get(userPath + "/public/profile"), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          migrateContent(obj);
+        }
+      });
 
     // contact nodes
-    for (Content obj : allChildren(sourceCM.get(userPath + "/contacts"))) {
-      migrateContent(obj);
-    }
+    allChildren(sourceCM.get(userPath + "/contacts"), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          migrateContent(obj);
+        }
+      });
 
     // contact groups
     targetAM.createGroup(contactsGroup, contactsGroup, null);
@@ -567,6 +628,10 @@ public class Migrate extends SlingSafeMethodsServlet {
       // FIXME: error checking would be nice
       insert.execute();
     }
+
+    insert.close();
+    delete.close();
+    sourceRows.close();
   }
 
   // Hm.  Actually this throws dupe key errors and looks a bit like we don't
@@ -651,6 +716,10 @@ public class Migrate extends SlingSafeMethodsServlet {
       // FIXME: error checking would be nice
       insert.execute();
     }
+
+    insert.close();
+    delete.close();
+    sourceRows.close();
   }
 
 
@@ -672,6 +741,7 @@ public class Migrate extends SlingSafeMethodsServlet {
         if (!isBoringUser(user.getId())) {
           if (createUser(user)) {
             createdUsers.add(user.getId());
+            usersCreated++;
           }
         }
       }
@@ -694,6 +764,8 @@ public class Migrate extends SlingSafeMethodsServlet {
 
       if (user != null) {
         migrateUser(user);
+        usersMigrated++;
+
       }
     }
   }
@@ -709,9 +781,9 @@ public class Migrate extends SlingSafeMethodsServlet {
       LOGGER.info("** Migrating content page: " + page);
 
       JDBCStorageClient storageClient = (JDBCStorageClient)sourceConnectionPool.getClient();
-      Iterator<Map<String,Object>> it = storageClient.find("n", "cn",
-                                                           ImmutableMap.of("sling:resourceType", (Object)"sakai/pooled-content",
-                                                                           "_page", String.valueOf(page)));
+      DisposableIterator<Map<String,Object>> it = storageClient.find("n", "cn",
+                                                                             mapOf("sling:resourceType", (Object)"sakai/pooled-content",
+                                                                                   "_page", String.valueOf(page)));
 
       int processed = 0;
 
@@ -729,12 +801,15 @@ public class Migrate extends SlingSafeMethodsServlet {
         try {
           if (targetCM.get((String)contentMap.get("_path")) == null) {
             migrateContent(sourceCM.get((String)contentMap.get("_path")));
+            pooledContentMigrated++;
           }
         } catch (Exception e) {
-            LOGGER.warn("Hit problems migrating: {}", contentMap);
-            e.printStackTrace();
-          }
+          LOGGER.warn("Hit problems migrating: {}", contentMap);
+          e.printStackTrace();
         }
+      }
+
+      it.close();
 
       if (processed == 0) {
         break;
@@ -796,11 +871,13 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   private String getMembersString(String groupName, String[] members)
   {
-    List<String> filtered = new ArrayList<String>(members.length);
+    List<String> filtered = new ArrayList<String>();
 
-    for (String member : members) {
-      if (!member.equals(groupName + "-managers")) {
-        filtered.add(member);
+    if (members != null) {
+      for (String member : members) {
+        if (!member.equals(groupName + "-managers")) {
+          filtered.add(member);
+        }
       }
     }
 
@@ -842,20 +919,31 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   private String getPageContent(Content content) throws Exception
   {
+    String pageContent = null;
+
     for (Content obj : content.listChildren()) {
       if ("sakai/pagecontent".equals(obj.getProperty("sling:resourceType"))) {
-        return (String)obj.getProperty("sakai:pagecontent");
+        pageContent = (String)obj.getProperty("sakai:pagecontent");
       }
     }
 
-    LOGGER.error("Couldn't find page content for: {}", content);
-    return "";
+    if (pageContent == null) {
+      LOGGER.error("Couldn't find page content for: {}", content);
+      return "";
+    }
+
+    return pageContent;
   }
 
 
   private void migrateContentTree(Content rootNode, String newRoot)
     throws Exception
   {
+    if (rootNode == null) {
+      LOGGER.warn("I wanted to migrate a tree to '{}' but the object was null.", newRoot);
+      return;
+    }
+
     int lastSlash = rootNode.getPath().lastIndexOf("/");
     String oldRoot = rootNode.getPath().substring(0, lastSlash + 1);
     String nodeName = rootNode.getPath().substring(lastSlash + 1);
@@ -869,26 +957,27 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void migrateWidgetData(Authorizable group, String poolId)
+  private void migrateWidgetData(Authorizable group, final String poolId)
     throws Exception
   {
     String groupId = group.getId();
     String groupPath = "a:" + groupId;
 
-    for (Content obj : allChildren(sourceCM.get(groupPath + "/pages/_widgets"))) {
-      if (obj.getPath().matches("^.*/id[0-9]+$")) {
-        // THINKE: this is going to link every embedded piece of content
-        // for a group to every page in the group.  Does this matter?
-        // Embedded content used to all get put into a shared pool under
-        // the embedcontent widget, but now they're added to a node
-        // under the page's pool id.  Not sure how to figure out which
-        // embedded content belongs to which page without parsing the
-        // page source...
-        migrateContentTree(obj, poolId);
-      }
-    }
+    allChildren(sourceCM.get(groupPath + "/pages/_widgets"), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          if (obj.getPath().matches("^.*/id[0-9]+$")) {
+            // THINKE: this is going to link every embedded piece of content
+            // for a group to every page in the group.  Does this matter?
+            // Embedded content used to all get put into a shared pool under
+            // the embedcontent widget, but now they're added to a node
+            // under the page's pool id.  Not sure how to figure out which
+            // embedded content belongs to which page without parsing the
+            // page source...
+            migrateContentTree(obj, poolId);
+          }
+        }
+      });
   }
-
 
   private void migratePage(Authorizable group, Content content) throws Exception
   {
@@ -908,27 +997,27 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     // THINKE: does "permissions" need to be cleverer?
     targetCM.update(makeContent(poolId,
-                                new ImmutableMap.Builder<String,Object>()
-                                .put("sakai:copyright", "creativecommons")
-                                .put("sakai:custom-mimetype", "x-sakai/document")
-                                .put("sakai:description", "")
-                                .put("sakai:permissions"," public")
-                                .put("sakai:pool-content-created-for", creator)
-                                .put("sakai:pooled-content-file-name", pageId)
-                                .put("sakai:pooled-content-manager",
-                                     new String[] { group.getId() + "-manager", creator })
-                                .put("sakai:pooled-content-viewer",
-                                     new String[] { "anonymous", "everyone", group.getId() + "-member" })
-                                .put("sling:resourceType", "sakai/pooled-content")
-                                .put("structure0", structure)
-                                .build()));
+                                mapOf("sakai:copyright", "creativecommons",
+                                      "sakai:custom-mimetype", "x-sakai/document",
+                                      "sakai:description", "",
+                                      "sakai:permissions"," public",
+                                      "sakai:pool-content-created-for", creator,
+                                      "sakai:pooled-content-file-name", pageId,
+                                      "sakai:pooled-content-manager", new String[] { group.getId() + "-manager", creator },
+                                      "sakai:pooled-content-viewer", new String[] { "anonymous", "everyone", group.getId() + "-member" },
+                                      "sling:resourceType", "sakai/pooled-content",
+                                      "structure0", structure)));
 
     setWorldReadableGroupWritable(poolId, group, Security.ZONE_CONTENT);
 
-    targetCM.update(makeContent(poolId + "/" + contentId,
-                                new ImmutableMap.Builder<String,Object>()
-                                .put("page", getPageContent(content))
-                                .build()));
+    String pageContent = getPageContent(content);
+
+    if (pageContent != null) {
+      targetCM.update(makeContent(poolId + "/" + contentId,
+                                  mapOf("page", pageContent)));
+    } else {
+      LOGGER.warn("Couldn't find page content for {} (group: {})", content, group);
+    }
 
     addToDocstructure(group, pageId, (String)content.getProperty("pageTitle"), poolId);
 
@@ -936,21 +1025,23 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void migratePages(Authorizable group) throws Exception
+  private void migratePages(final Authorizable group) throws Exception
   {
     LOGGER.info ("Migrating pages for group: {}", group);
 
     String groupId = group.getId();
     String groupPath = "a:" + groupId;
 
-    for (Content obj : allChildren(sourceCM.get(groupPath))) {
-      if ("sakai/page".equals(obj.getProperty("sling:resourceType")) &&
-          !obj.getPath().matches("^.*/(about-this-group|group-dashboard)$")) {
-        LOGGER.info ("MIGRATING PAGE: {}", obj);
-        migratePage(group, obj);
-        LOGGER.info ("DONE\n\n");
-      }
-    }
+    allChildren(sourceCM.get(groupPath), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          if ("sakai/page".equals(obj.getProperty("sling:resourceType")) &&
+              !obj.getPath().matches("^.*/(about-this-group|group-dashboard)$")) {
+            LOGGER.info ("MIGRATING PAGE: {}", obj);
+            migratePage(group, obj);
+            LOGGER.info ("DONE\n\n");
+          }
+        }
+      });
   }
 
 
@@ -961,32 +1052,22 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     targetAM.createGroup(groupId, description, properties);
 
-    targetCM.update(makeContent(groupPath,
-                                ImmutableMap.of("sling:resourceType",
-                                                (Object)"sakai/group-home")));
+    targetCM.update(makeContent(groupPath, mapOf("sling:resourceType","sakai/group-home")));
 
-    targetCM.update(makeContent(groupPath + "/calendar",
-                                ImmutableMap.of("sling:resourceType",
-                                                (Object)"sakai/calendar")));
+    targetCM.update(makeContent(groupPath + "/calendar", mapOf("sling:resourceType","sakai/calendar")));
 
-    targetCM.update(makeContent(groupPath + "/contacts",
-                                ImmutableMap.of("sling:resourceType",
-                                                (Object)"sparse/contactstore")));
+    targetCM.update(makeContent(groupPath + "/contacts", mapOf("sling:resourceType","sparse/contactstore")));
 
-    targetCM.update(makeContent(groupPath + "/joinrequests",
-                                ImmutableMap.of("sling:resourceType",
-                                                (Object)"sparse/joinrequests")));
+    targetCM.update(makeContent(groupPath + "/joinrequests", mapOf("sling:resourceType","sparse/joinrequests")));
 
     // Create a public authprofile too
     targetCM.update(makeContent(groupPath + "/public/authprofile",
-                                new ImmutableMap.Builder<String,Object>()
-                                .put("sling:resourceType", "sakai/group-profile")
-                                .put("homePath", "/~" + groupId)
-                                .put("sakai:group-id", groupId)
-                                .put("sakai:group-joinable", properties.get("sakai:group-joinable"))
-                                .put("sakai:group-title", description)
-                                .put("sakai:group-visible", properties.get("sakai:group-visible"))
-                                .build()));
+                                mapOf("sling:resourceType", "sakai/group-profile",
+                                      "homePath", "/~" + groupId,
+                                      "sakai:group-id", groupId,
+                                      "sakai:group-joinable", properties.get("sakai:group-joinable"),
+                                      "sakai:group-title", description,
+                                      "sakai:group-visible", properties.get("sakai:group-visible"))));
   }
 
 
@@ -998,6 +1079,21 @@ public class Migrate extends SlingSafeMethodsServlet {
     String groupPath = "a:" + groupId;
 
     Map<String,Object> props = new HashMap<String,Object>(group.getOriginalProperties());
+
+
+    String[] requiredProperties = new String[] {"members", "rep:group-managers",
+                                                "sakai:group-joinable",
+                                                "sakai:group-visible"};
+
+    for (String p : requiredProperties) {
+      if (props.get(p) == null) {
+        LOGGER.error("\n***************************\n" +
+                     "Missing property for group: " + group + " - " + p + ". Skipped!" +
+                     "\n***************************\n");
+        return;
+      }
+    }
+
 
     props.remove("sakai:managers-group");
 
@@ -1048,29 +1144,27 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     targetAM.createGroup(groupId, (String)group.getProperty("sakai:group-title"), props);
 
-    // Group members
+
     createStandardGroup(groupId + "-member",
                         String.format("%s (Members)", groupId),
-                        new ImmutableMap.Builder<String,Object>()
-                        .put("type", "g")
-                        .put("principals", groupId)
-                        .put("rep:group-viewers", props.get("rep:group-viewers"))
-                        .put("rep:group-managers", props.get("rep:group-managers"))
-                        .put("sakai:group-joinable", props.get("sakai:group-joinable"))
-                        .put("sakai:group-id", groupId + "-member")
-                        .put("sakai:group-title", String.format("%s (Members)", groupId))
-                        .put("sakai:pseudogroupparent", groupId)
-                        .put("contentCount", 0)
-                        .put("sakai:pseudoGroup", true)
-                        .put("name", groupId + "-member")
-                        .put("email", "unknown")
-                        .put("firstName", "unknown")
-                        .put("lastName", "unknown")
-                        .put("membershipsCount", 1)
-                        .put("sakai:excludeSearch", true)
-                        .put("sakai:group-visible", props.get("sakai:group-visible"))
-                        .put("members", getMembersString(groupId, ((Group)group).getMembers()))
-                        .build());
+                        mapOf("type", "g",
+                              "principals", groupId,
+                              "rep:group-viewers", props.get("rep:group-viewers"),
+                              "rep:group-managers", props.get("rep:group-managers"),
+                              "sakai:group-joinable", props.get("sakai:group-joinable"),
+                              "sakai:group-id", groupId + "-member",
+                              "sakai:group-title", String.format("%s (Members)", groupId),
+                              "sakai:pseudogroupparent", groupId,
+                              "contentCount", 0,
+                              "sakai:pseudoGroup", true,
+                              "name", groupId + "-member",
+                              "email", "unknown",
+                              "firstName", "unknown",
+                              "lastName", "unknown",
+                              "membershipsCount", 1,
+                              "sakai:excludeSearch", true,
+                              "sakai:group-visible", props.get("sakai:group-visible"),
+                              "members", getMembersString(groupId, ((Group)group).getMembers())));
     setWorldReadableGroupWritable(groupPath + "-member", group, Security.ZONE_CONTENT);
     setWorldReadableGroupWritable(groupId + "-member", group, Security.ZONE_AUTHORIZABLES);
 
@@ -1078,26 +1172,24 @@ public class Migrate extends SlingSafeMethodsServlet {
     // Group managers
     createStandardGroup(groupId + "-manager",
                         String.format("%s (Managers)", groupId),
-                        new ImmutableMap.Builder<String,Object>()
-                        .put("type", "g")
-                        .put("principals", groupId)
-                        .put("rep:group-viewers", props.get("rep:group-viewers"))
-                        .put("rep:group-managers", props.get("rep:group-managers"))
-                        .put("sakai:group-joinable", props.get("sakai:group-joinable"))
-                        .put("sakai:group-id", groupId + "-manager")
-                        .put("sakai:group-title", String.format("%s (Managers)", groupId))
-                        .put("sakai:pseudogroupparent", groupId)
-                        .put("contentCount", 0)
-                        .put("sakai:pseudoGroup", true)
-                        .put("name", groupId + "-manager")
-                        .put("email", "unknown")
-                        .put("firstName", "unknown")
-                        .put("lastName", "unknown")
-                        .put("membershipsCount", 1)
-                        .put("sakai:excludeSearch", true)
-                        .put("sakai:group-visible", props.get("sakai:group-visible"))
-                        .put("members", getMembersString(groupId, ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers()))
-                        .build());
+                        mapOf("type", "g",
+                              "principals", groupId,
+                              "rep:group-viewers", props.get("rep:group-viewers"),
+                              "rep:group-managers", props.get("rep:group-managers"),
+                              "sakai:group-joinable", props.get("sakai:group-joinable"),
+                              "sakai:group-id", groupId + "-manager",
+                              "sakai:group-title", String.format("%s (Managers)", groupId),
+                              "sakai:pseudogroupparent", groupId,
+                              "contentCount", 0,
+                              "sakai:pseudoGroup", true,
+                              "name", groupId + "-manager",
+                              "email", "unknown",
+                              "firstName", "unknown",
+                              "lastName", "unknown",
+                              "membershipsCount", 1,
+                              "sakai:excludeSearch", true,
+                              "sakai:group-visible", props.get("sakai:group-visible"),
+                              "members", getMembersString(groupId, ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers())));
 
     setWorldReadableGroupWritable(groupPath + "-manager", group, Security.ZONE_CONTENT);
     setWorldReadableGroupWritable(groupId + "-manager", group, Security.ZONE_AUTHORIZABLES);
@@ -1116,20 +1208,24 @@ public class Migrate extends SlingSafeMethodsServlet {
 
 
     // Authprofile nodes
-    for (Content obj : allChildren(sourceCM.get(groupPath))) {
-      if (obj.getPath().matches(".*authprofile.*")) {
-        migrateContent(obj);
-      }
-    }
+    allChildren(sourceCM.get(groupPath), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          if (obj.getPath().matches(".*authprofile.*")) {
+            migrateContent(obj);
+          }
+        }
+      });
 
     // The group's profile picture (THINKME: is this a specific case of a more
     // general type of content that needs migrating too?)
-    for (Content obj : allChildren(sourceCM.get(groupPath))) {
-      if ((obj.getProperty("mimeType") != null && ((String)(obj.getProperty("mimeType"))).startsWith("image/")) ||
-          (obj.getProperty("_mimeType") != null && ((String)obj.getProperty("_mimeType")).startsWith("image/"))) {
-        migrateContent(obj);
-      }
-    }
+    allChildren(sourceCM.get(groupPath), new ContentVisitor() {
+        public void visit(Content obj) throws Exception {
+          if ((obj.getProperty("mimeType") != null && ((String)(obj.getProperty("mimeType"))).startsWith("image/")) ||
+              (obj.getProperty("_mimeType") != null && ((String)obj.getProperty("_mimeType")).startsWith("image/"))) {
+            migrateContent(obj);
+          }
+        }
+      });
 
     LOGGER.info("Building docstructure...");
     buildDocstructure(group);
@@ -1155,9 +1251,8 @@ public class Migrate extends SlingSafeMethodsServlet {
       LOGGER.info("** Migrating group page: " + page);
 
       JDBCStorageClient storageClient = (JDBCStorageClient)sourceConnectionPool.getClient();
-      Iterator<Map<String,Object>> it = storageClient.find("n", "cn",
-                                                           ImmutableMap.of("sling:resourceType", (Object)"sakai/group-home",
-                                                                           "_page", String.valueOf(page)));
+      DisposableIterator<Map<String,Object>> it = storageClient.find("n", "cn", mapOf("sling:resourceType", "sakai/group-home",
+                                                                                      "_page", String.valueOf(page)));
 
       int processed = 0;
 
@@ -1169,12 +1264,15 @@ public class Migrate extends SlingSafeMethodsServlet {
         Authorizable group = sourceAM.findAuthorizable(groupName);
 
         if (targetAM.findAuthorizable(groupName) == null) {
-        // targetAM.delete(groupName);
-        // targetAM.delete(groupName + "-member");
-        // targetAM.delete(groupName + "-manager");
+          // targetAM.delete(groupName);
+          // targetAM.delete(groupName + "-member");
+          // targetAM.delete(groupName + "-manager");
           migrateGroup(group);
+          groupsMigrated++;
         }
-    }
+      }
+
+      it.close();
 
       if (processed == 0) {
         break;
@@ -1187,24 +1285,76 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
+  private void showDashboard(PrintWriter writer)
+  {
+    if (migrationRunning.get()) {
+      writer.println("Migration started at: " + migrationStartTime);
+      writer.println("");
+      writer.println("Users created: " + usersCreated);
+      writer.println("Users migrated: " + usersMigrated);
+      writer.println("Pooled content objects migrated: " + pooledContentMigrated);
+      writer.println("Groups migrated: " + groupsMigrated);
+      writer.println("");
+      writer.println("Current time: " + new Date());
+      writer.println("");
+      writer.println("Migration status: " + migrationStatus);
+      writer.println("");
+      writer.println("Mental health: Tattered    Mana: 91    Fatigue: 10");
+      writer.println("");
+
+      if (migrationFinishTime != null) {
+        writer.println("Migration finished at: " + migrationFinishTime);
+      }
+
+    } else {
+      writer.println("No migration is currently running!");
+    }
+  }
+
+
   protected void doGet(SlingHttpServletRequest request,
                        SlingHttpServletResponse response)
     throws ServletException, IOException
   {
-    try {
-      LOGGER.info("Migrating!");
+    if (request.getParameter("run_migration") != null) {
+      if (migrationRunning.getAndSet(true) == false) {
+        migrationStartTime = new Date();
 
-      connectToSourceRepository();
-      // Annoyingly, all users need to exist before we can start linking them up
-      // with connections, etc..
-      List<String> createdUsers = createAllUsers();
-      migrateUsers(createdUsers);
-      migratePooledContent();
-      migrateAllGroups();
+        try {
+          LOGGER.info("Migrating!");
 
-    } catch (Exception e) {
-      LOGGER.error("Caught a top-level error: {}", e);
-      e.printStackTrace();
+          migrationStatus = "Connecting to repository";
+          connectToSourceRepository(request);
+          // Annoyingly, all users need to exist before we can start linking them up
+          // with connections, etc..
+
+          migrationStatus = "Creating users";
+          List<String> createdUsers = createAllUsers();
+
+          migrationStatus = "Migrating groups";
+          migrateAllGroups();
+
+          migrationStatus = "Migrating users";
+          migrateUsers(createdUsers);
+
+          migrationStatus = "Migrating pooled content";
+          migratePooledContent();
+
+          migrationStatus = "Done!";
+
+        } catch (Exception e) {
+          LOGGER.error("Caught a top-level error: {}", e);
+          e.printStackTrace();
+
+          migrationStatus = "FAILED: " + e;
+        }
+
+        migrationFinishTime = new Date();
+      } else {
+        response.getWriter().write("Migration already running!");
+      }
+    } else {
+      showDashboard(response.getWriter());
     }
   }
 }
