@@ -491,6 +491,27 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
+  // Bits common to users and groups
+  private void migrateAuthorizableHome(String path) throws Exception
+  {
+    // home
+    migrateContent(sourceCM.get(path));
+
+    migrateContentTree(sourceCM.get(path + "/calendar"),
+                       path);
+
+    migrateContentTree(sourceCM.get(path + "/contacts"),
+                       path);
+
+    migrateContentTree(sourceCM.get(path + "/message"),
+                       path);
+
+    // profiles and authprofiles
+    migrateContentTree(sourceCM.get(path + "/public"),
+                       path);
+  }
+
+
   private void migrateUser(Authorizable user) throws Exception
   {
     final String userId = user.getId();
@@ -501,68 +522,38 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     migrateAuthorizableACL(user);
 
-    // User home
-    migrateContent(sourceCM.get(userPath));
-
-    migrateContentTree(sourceCM.get(userPath + "/calendar"),
-                       userPath);
-
-    migrateContentTree(sourceCM.get(userPath + "/contacts"),
-                       userPath);
-
-    migrateContentTree(sourceCM.get(userPath + "/message"),
-                       userPath);
-
-
+    migrateAuthorizableHome(userPath);
 
     // Authprofile nodes
-    allChildren(sourceCM.get(userPath), new ContentVisitor() {
+    allChildren(targetCM.get(userPath + "/public/authprofile"), new ContentVisitor() {
         public void visit(Content obj) throws Exception {
-          if (obj.getPath().matches(".*authprofile.*")) {
-            migrateContent(obj);
-
-            List<AclModification> acls = new ArrayList<AclModification>();
+          List<AclModification> acls = new ArrayList<AclModification>();
      
-            if (obj.getPath().matches("(.*authprofile$|.*authprofile/basic.*)")) {
-              // Set basic profile information readable to logged in users
-              AclModification.addAcl(false,
-                                     Permissions.CAN_READ,
-                                     User.ANON_USER,
-                                     acls);
-              AclModification.addAcl(true,
-                                     Permissions.CAN_READ,
-                                     org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
-                                     acls);
-            } else {
-              // And all others to contacts only
-              AclModification.addAcl(false,
-                                     Permissions.CAN_READ,
-                                     User.ANON_USER,
-                                     acls);
-              AclModification.addAcl(false,
-                                     Permissions.CAN_READ,
-                                     org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
-                                     acls);
-              AclModification.addAcl(true, Permissions.CAN_READ, contactsGroup, acls);
-            }
-
-            AclModification.addAcl(true, Permissions.CAN_ANYTHING, userId, acls);
-            targetACL.setAcl(Security.ZONE_CONTENT, obj.getPath(), acls.toArray(new AclModification[acls.size()]));
+          if (obj.getPath().matches("(.*authprofile$|.*authprofile/basic.*)")) {
+            // Set basic profile information readable to logged in users
+            AclModification.addAcl(false,
+                                   Permissions.CAN_READ,
+                                   User.ANON_USER,
+                                   acls);
+            AclModification.addAcl(true,
+                                   Permissions.CAN_READ,
+                                   org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
+                                   acls);
+          } else {
+            // And all others to contacts only
+            AclModification.addAcl(false,
+                                   Permissions.CAN_READ,
+                                   User.ANON_USER,
+                                   acls);
+            AclModification.addAcl(false,
+                                   Permissions.CAN_READ,
+                                   org.sakaiproject.nakamura.api.lite.authorizable.Group.EVERYONE,
+                                   acls);
+            AclModification.addAcl(true, Permissions.CAN_READ, contactsGroup, acls);
           }
-        }
-      });
 
-    // public profile
-    allChildren(sourceCM.get(userPath + "/public/profile"), new ContentVisitor() {
-        public void visit(Content obj) throws Exception {
-          migrateContent(obj);
-        }
-      });
-
-    // contact nodes
-    allChildren(sourceCM.get(userPath + "/contacts"), new ContentVisitor() {
-        public void visit(Content obj) throws Exception {
-          migrateContent(obj);
+          AclModification.addAcl(true, Permissions.CAN_ANYTHING, userId, acls);
+          targetACL.setAcl(Security.ZONE_CONTENT, obj.getPath(), acls.toArray(new AclModification[acls.size()]));
         }
       });
 
@@ -1194,38 +1185,8 @@ public class Migrate extends SlingSafeMethodsServlet {
     setWorldReadableGroupWritable(groupPath + "-manager", group, Security.ZONE_CONTENT);
     setWorldReadableGroupWritable(groupId + "-manager", group, Security.ZONE_AUTHORIZABLES);
 
-    // Group home & standard parts
-    migrateContent(sourceCM.get(groupPath));
+    migrateAuthorizableHome(groupPath);
 
-    migrateContentTree(sourceCM.get(groupPath + "/message"),
-                       groupPath);
-
-    migrateContentTree(sourceCM.get(groupPath + "/calendar"),
-                       groupPath);
-
-    migrateContentTree(sourceCM.get(groupPath + "/contacts"),
-                       groupPath);
-
-
-    // Authprofile nodes
-    allChildren(sourceCM.get(groupPath), new ContentVisitor() {
-        public void visit(Content obj) throws Exception {
-          if (obj.getPath().matches(".*authprofile.*")) {
-            migrateContent(obj);
-          }
-        }
-      });
-
-    // The group's profile picture (THINKME: is this a specific case of a more
-    // general type of content that needs migrating too?)
-    allChildren(sourceCM.get(groupPath), new ContentVisitor() {
-        public void visit(Content obj) throws Exception {
-          if ((obj.getProperty("mimeType") != null && ((String)(obj.getProperty("mimeType"))).startsWith("image/")) ||
-              (obj.getProperty("_mimeType") != null && ((String)obj.getProperty("_mimeType")).startsWith("image/"))) {
-            migrateContent(obj);
-          }
-        }
-      });
 
     LOGGER.info("Building docstructure...");
     buildDocstructure(group);
