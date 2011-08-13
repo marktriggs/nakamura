@@ -722,7 +722,8 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
 
       insert.setString(1, new_rid);
-      insert.setBinaryStream(2, rewriteHashAndGroupNames(rs.getBinaryStream(2), old_rid, new_rid, "ac", id));
+      InputStream rewritten = rewriteHashAndGroupNames(rs.getBinaryStream(2), old_rid, new_rid, "ac", id);
+      insert.setBinaryStream(2, rewritten, rewritten.available());
 
       // FIXME: error checking would be nice
       insert.execute();
@@ -1332,7 +1333,7 @@ public class Migrate extends SlingSafeMethodsServlet {
 
           migrationStatus = "Done!";
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
           LOGGER.error("Caught a top-level error: {}", e);
           e.printStackTrace();
 
