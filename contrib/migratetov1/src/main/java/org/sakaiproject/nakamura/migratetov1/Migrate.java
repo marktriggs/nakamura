@@ -173,6 +173,9 @@ public class Migrate extends SlingSafeMethodsServlet {
   volatile Date migrationFinishTime = null;
 
 
+  private Set<String> includedGroups = new HashSet<String>();;
+
+
   private Map<String,Object> mapOf(Object ... stuff)
   {
     Map<String,Object> result = new HashMap<String,Object>();
@@ -251,6 +254,19 @@ public class Migrate extends SlingSafeMethodsServlet {
     Field cacheField = CachingManager.class.getDeclaredField("sharedCache");
     cacheField.setAccessible(true);
     sharedCache = (Map)cacheField.get(targetCM);
+  }
+
+
+  private void loadIncludedGroups()
+  {
+  }
+
+  private boolean isGroupIncluded(String group)
+  {
+    return (includedGroups == null ||
+            group.startsWith("g-contacts") ||
+            includedGroups.contains(group) ||
+            includedGroups.contains(group + "-managers"));
   }
 
 
@@ -476,11 +492,15 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     if (props.get("principals") != null) {
       for (String membership : ((String)props.get("principals")).split(";")) {
-        if (membership.endsWith("-managers")) {
-          // Now "-manager"
-          filtered.add(membership.substring(0, membership.length() - 1));
-        } else {
-          filtered.add(membership);
+
+        // Only migrate groups that we've explicitly included
+        if (isGroupIncluded(membership)) {
+          if (membership.endsWith("-managers")) {
+            // Now "-manager"
+            filtered.add(membership.substring(0, membership.length() - 1));
+          } else {
+            filtered.add(membership);
+          }
         }
       }
     }
@@ -1222,6 +1242,11 @@ public class Migrate extends SlingSafeMethodsServlet {
         Map<String,Object> groupMap = it.next();
 
         String groupName = ((String)groupMap.get("_path")).split(":", 2)[1];
+
+        if (includedGroups.contains(groupName)) {
+          continue;
+        }
+
         Authorizable group = sourceAM.findAuthorizable(groupName);
 
         if (targetAM.findAuthorizable(groupName) == null) {
@@ -1286,6 +1311,10 @@ public class Migrate extends SlingSafeMethodsServlet {
 
           migrationStatus = "Connecting to repository";
           connectToSourceRepository(request);
+
+          loadIncludedGroups();
+
+
           // Annoyingly, all users need to exist before we can start linking them up
           // with connections, etc..
 
