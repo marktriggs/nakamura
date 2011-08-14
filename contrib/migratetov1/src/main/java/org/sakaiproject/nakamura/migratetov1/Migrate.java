@@ -257,16 +257,19 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void loadIncludedGroups()
+  private void loadIncludedGroups() throws Exception
   {
+    includedGroups = new HashSet<String>();
+
+    for (String group : readResource("included-groups.txt").split("\n")) {
+      includedGroups.add(group);
+    }
   }
 
   private boolean isGroupIncluded(String group)
   {
     return (includedGroups == null ||
-            group.startsWith("g-contacts") ||
-            includedGroups.contains(group) ||
-            includedGroups.contains(group + "-managers"));
+            includedGroups.contains(group));
   }
 
 
@@ -280,7 +283,7 @@ public class Migrate extends SlingSafeMethodsServlet {
   private void importJson(String path, String jsonString) throws Exception
   {
     JSONObject json = new JSONObject(jsonString);
-    new LiteJsonImporter().importContent(targetCM, json, path, true, true, true, targetACL);
+    new LiteJsonImporter().importContent(targetCM, json, path, true, true, false, targetACL);
   }
 
 
@@ -300,9 +303,9 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void migrateContentACL(Content content) throws Exception
+  private void migrateContentACL(Content sourceContent, Content destContent) throws Exception
   {
-    migrateACL("n", "CO", content.getPath(), true);
+    migrateACL("n", "CO", sourceContent.getPath(), destContent.getPath(), true);
   }
 
 
@@ -340,6 +343,15 @@ public class Migrate extends SlingSafeMethodsServlet {
   private boolean migrateContent(Content content) throws Exception
   {
     if (content == null) {
+      return false;
+    }
+
+    return migrateContent(content, content.getPath());
+  }
+
+  private boolean migrateContent(Content content, String path) throws Exception
+  {
+    if (content == null) {
       // We may get a null content object when an item is deleted but not
       // properly cleaned up from the repo.  I think I've seen this when
       // deleting content objects with multiple versions...
@@ -367,21 +379,22 @@ public class Migrate extends SlingSafeMethodsServlet {
       InputStream versionInputStream = sourceCM.getVersionInputStream(content.getPath(), versionId);
 
       if (versionInputStream != null) {
-        targetCM.writeBody(content.getPath(), versionInputStream);
+        targetCM.writeBody(path, versionInputStream);
         versionInputStream.close();
       }
 
-      saveVersionWithTimestamp(content.getPath(), version.getProperty("_versionNumber"));
+      saveVersionWithTimestamp(path, version.getProperty("_versionNumber"));
     }
 
-    targetCM.update(makeContent(content));
+    Content destContent = makeContent(path, content.getProperties());
+    targetCM.update(destContent);
     if (sourceCM.hasBody(content.getPath(), null)) {
       InputStream is = sourceCM.getInputStream(content.getPath());
-      targetCM.writeBody(content.getPath(), is);
+      targetCM.writeBody(path, is);
       is.close();
     }
 
-    migrateContentACL(content);
+    migrateContentACL(content, destContent);
 
     // migrate any comments
     String commentsPath = content.getPath() + "/comments";
@@ -494,13 +507,13 @@ public class Migrate extends SlingSafeMethodsServlet {
       for (String membership : ((String)props.get("principals")).split(";")) {
 
         // Only migrate groups that we've explicitly included
-        if (isGroupIncluded(membership)) {
-          if (membership.endsWith("-managers")) {
-            // Now "-manager"
-            filtered.add(membership.substring(0, membership.length() - 1));
-          } else {
-            filtered.add(membership);
-          }
+        if (membership.startsWith("g-contacts-") ||
+            isGroupIncluded(membership)) {
+          filtered.add(membership);
+        } else if (membership.endsWith("-managers") &&
+                   isGroupIncluded(membership.substring(0, membership.lastIndexOf("-")))) {
+          // Now "-manager"
+          filtered.add(membership.substring(0, membership.length() - 1));
         }
       }
     }
@@ -649,7 +662,7 @@ public class Migrate extends SlingSafeMethodsServlet {
   // have to do it...
   private void migrateAuthorizableACL(Authorizable authorizable) throws Exception
   {
-    migrateACL("n", "AU", authorizable.getId(), true);
+    migrateACL("n", "AU", authorizable.getId(), authorizable.getId(), true);
   }
 
   
@@ -657,7 +670,7 @@ public class Migrate extends SlingSafeMethodsServlet {
                                                String old_rid,
                                                String new_rid,
                                                String columnFamily,
-                                               String authId)
+                                               String id)
     throws Exception
   {
     Map<String, Object> map = new HashMap<String, Object>();
@@ -675,8 +688,8 @@ public class Migrate extends SlingSafeMethodsServlet {
       // ... and we now have a member group that kicks in where the group
       // membership previously would have.  Add the members to the ACL list as
       // well.
-      if (key.startsWith(authId + "@")) {
-        filtered.put(key.replaceAll(authId + "@", authId + "-member@"),
+      if (key.startsWith(id + "@")) {
+        filtered.put(key.replaceAll(id + "@", id + "-member@"),
                      map.get(key));
       }
     }
@@ -685,20 +698,20 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private void migrateACL(String keySpace, String columnFamily, String id, boolean force)
+  private void migrateACL(String keySpace, String columnFamily, String sourceId, String destId, boolean force)
     throws Exception
   {
     String old_rid;
 
-    LOGGER.info("MIGRATING ACL FOR: {}", id);
+    LOGGER.info("MIGRATING ACL FOR: {} -> {}", sourceId, destId);
 
-    if (id != null && id.startsWith("/")) {
-      old_rid = rowHash(keySpace, "ac", columnFamily + id);
+    if (sourceId != null && sourceId.startsWith("/")) {
+      old_rid = rowHash(keySpace, "ac", columnFamily + sourceId);
     } else {
-      old_rid = rowHash(keySpace, "ac", columnFamily + "/" + id);
+      old_rid = rowHash(keySpace, "ac", columnFamily + "/" + sourceId);
     }
 
-    String new_rid = rowHash(keySpace, "ac", columnFamily + ";" + id);
+    String new_rid = rowHash(keySpace, "ac", columnFamily + ";" + destId);
 
     Connection source = ((JDBCStorageClientPool)sourceConnectionPool).getConnection();
     Connection dest = ((JDBCStorageClientPool)targetConnectionPool).getConnection();
@@ -722,7 +735,7 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
 
       insert.setString(1, new_rid);
-      InputStream rewritten = rewriteHashAndGroupNames(rs.getBinaryStream(2), old_rid, new_rid, "ac", id);
+      InputStream rewritten = rewriteHashAndGroupNames(rs.getBinaryStream(2), old_rid, new_rid, "ac", destId);
       insert.setBinaryStream(2, rewritten, rewritten.available());
 
       // FIXME: error checking would be nice
@@ -961,7 +974,7 @@ public class Migrate extends SlingSafeMethodsServlet {
     String nodeName = rootNode.getPath().substring(lastSlash + 1);
     String newPath = newRoot + "/" + nodeName;
 
-    targetCM.update(makeContent(newPath, rootNode.getProperties()));
+    migrateContent(rootNode, newPath);
 
     for (Content child : rootNode.listChildren()) {
       migrateContentTree(child, newPath);
@@ -1154,6 +1167,17 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
     }
 
+    // Groups didn't used to have a picture property in their properties, but
+    // now the profile view looks here for them (and not in the authprofile).
+    // Grab a picture out of the public authprofile and slot it in if we have
+    // one.
+    Content authprofile = sourceCM.get(groupPath + "/public/authprofile");
+    String picture = (String)authprofile.getProperty("picture");
+    if (picture != null) {
+      props.put("picture", picture);
+    }
+
+
     targetAM.createGroup(groupId, (String)group.getProperty("sakai:group-title"), props);
 
 
@@ -1244,7 +1268,7 @@ public class Migrate extends SlingSafeMethodsServlet {
 
         String groupName = ((String)groupMap.get("_path")).split(":", 2)[1];
 
-        if (includedGroups.contains(groupName)) {
+        if (!isGroupIncluded(groupName)) {
           continue;
         }
 
@@ -1315,22 +1339,20 @@ public class Migrate extends SlingSafeMethodsServlet {
 
           loadIncludedGroups();
 
-
           // Annoyingly, all users need to exist before we can start linking them up
           // with connections, etc..
+         migrationStatus = "Creating users";
+         List<String> createdUsers = createAllUsers();
 
-          migrationStatus = "Creating users";
-          List<String> createdUsers = createAllUsers();
+         migrationStatus = "Migrating groups";
+         migrateAllGroups();
 
-          migrationStatus = "Migrating groups";
-          migrateAllGroups();
+         migrationStatus = "Migrating users";
+         migrateUsers(createdUsers);
 
-          migrationStatus = "Migrating users";
-          migrateUsers(createdUsers);
-
-          migrationStatus = "Migrating pooled content";
-          migratePooledContent();
-
+         migrationStatus = "Migrating pooled content";
+         migratePooledContent();
+         
           migrationStatus = "Done!";
 
         } catch (Throwable e) {
