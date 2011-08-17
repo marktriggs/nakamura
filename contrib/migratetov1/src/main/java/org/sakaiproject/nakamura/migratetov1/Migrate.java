@@ -503,20 +503,27 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     List<String> filtered = new ArrayList<String>();
 
+    int groupCount = 0;
+
     if (props.get("principals") != null) {
       for (String membership : ((String)props.get("principals")).split(";")) {
 
         // Only migrate groups that we've explicitly included
-        if (membership.startsWith("g-contacts-") ||
-            isGroupIncluded(membership)) {
+        if (membership.startsWith("g-contacts-")) {
           filtered.add(membership);
+        } else if (isGroupIncluded(membership)) {
+          filtered.add(membership);
+          groupCount++;
         } else if (membership.endsWith("-managers") &&
                    isGroupIncluded(membership.substring(0, membership.lastIndexOf("-")))) {
           // Now "-manager"
           filtered.add(membership.substring(0, membership.length() - 1));
+          groupCount++;
         }
       }
     }
+
+    props.put("membershipsCount", String.valueOf(groupCount));
 
     props.put("principals", StringUtils.join(filtered, ";"));
 
