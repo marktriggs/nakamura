@@ -12,6 +12,7 @@
     }, 
     "sakai:copyright": "creativecommons", 
     "sakai:custom-mimetype": "x-sakai/document", 
+    "_mimeType": "x-sakai/document", 
     "sakai:description": "", 
     "sakai:permissions": "public", 
     "sakai:pool-content-created-for": "admin", 

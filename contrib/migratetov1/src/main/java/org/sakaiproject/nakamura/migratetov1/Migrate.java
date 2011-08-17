@@ -832,7 +832,30 @@ public class Migrate extends SlingSafeMethodsServlet {
 
         try {
           if (targetCM.get((String)contentMap.get("_path")) == null) {
-            migrateContent(sourceCM.get((String)contentMap.get("_path")));
+            Content obj = sourceCM.get((String)contentMap.get("_path"));
+
+            if (obj == null) {
+              LOGGER.warn("Couldn't get content object to migrate: {}",
+                          (String)contentMap.get("_path"));
+              continue;
+            }
+
+            // Apply StuartF's migration for custom mime types...
+            String contentMimeType = (String)obj.getProperty("sakai:custom-mimetype");
+            if (contentMimeType != null) {
+              obj.setProperty("_mimeType", contentMimeType);
+              obj.removeProperty("sakai:custom-mimetype");
+
+              LOGGER.info("Renamed sakai:custom-mimetype -> _mimeType for {}", obj.getPath());
+            }
+            
+            // While we're at it, mime types of text/rtf don't preview properly
+            // in the new system.  Switch them to application/rtf.
+            if ("text/rtf".equals(obj.getProperty("_mimeType"))) {
+              obj.setProperty("_mimeType", "application/rtf");
+            }
+
+            migrateContent(obj);
             pooledContentMigrated++;
           }
         } catch (Exception e) {
