@@ -646,7 +646,7 @@ public class Migrate extends SlingSafeMethodsServlet {
       delete.clearParameters(); delete.clearWarnings();
       insert.clearParameters(); insert.clearWarnings();
 
-      LOGGER.info ("Migrating row {} with value {}", rs.getString(1), rs.getBytes(2));
+      // LOGGER.info ("Migrating row {} with value {}", rs.getString(1), rs.getBytes(2));
 
       if (force) {
         delete.setString(1, rs.getString(1));
@@ -710,7 +710,7 @@ public class Migrate extends SlingSafeMethodsServlet {
   {
     String old_rid;
 
-    LOGGER.info("MIGRATING ACL FOR: {} -> {}", sourceId, destId);
+    // LOGGER.info("MIGRATING ACL FOR: {} -> {}", sourceId, destId);
 
     if (sourceId != null && sourceId.startsWith("/")) {
       old_rid = rowHash(keySpace, "ac", columnFamily + sourceId);
@@ -734,7 +734,7 @@ public class Migrate extends SlingSafeMethodsServlet {
       delete.clearParameters(); delete.clearWarnings();
       insert.clearParameters(); insert.clearWarnings();
 
-      LOGGER.info ("Migrating row {} with value {}", rs.getString(1), rs.getBytes(2));
+      // LOGGER.info ("Migrating row {} with value {}", rs.getString(1), rs.getBytes(2));
 
       if (force) {
         delete.setString(1, new_rid);
@@ -859,7 +859,7 @@ public class Migrate extends SlingSafeMethodsServlet {
             pooledContentMigrated++;
           }
         } catch (Exception e) {
-          LOGGER.warn("Hit problems migrating: {}", contentMap);
+          LOGGER.warn("Hit problems migrating: {}: {}", contentMap, e);
           e.printStackTrace();
         }
       }
@@ -1042,8 +1042,6 @@ public class Migrate extends SlingSafeMethodsServlet {
     String contentId = generateWidgetId();
     String poolId = clusterTrackingService.getClusterUniqueId();
 
-    LOGGER.info("Migrating page with PoolId: {}", poolId);
-
     String structure = "{\"__PAGE_ID__\":{\"_title\":\"__PAGE_TITLE__\",\"_order\":0,\"_ref\":\"__CONTENT_ID__\",\"_nonEditable\":false,\"main\":{\"_title\":\"__PAGE_TITLE__\",\"_order\":0,\"_ref\":\"__CONTENT_ID__\",\"_nonEditable\":false}}}";
     structure = (structure
                  .replaceAll("__PAGE_ID__", pageId)
@@ -1093,7 +1091,6 @@ public class Migrate extends SlingSafeMethodsServlet {
               !obj.getPath().matches("^.*/(about-this-group|group-dashboard)$")) {
             LOGGER.info ("MIGRATING PAGE: {}", obj);
             migratePage(group, obj);
-            LOGGER.info ("DONE\n\n");
           }
         }
       });
