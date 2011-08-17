@@ -1371,17 +1371,17 @@ public class Migrate extends SlingSafeMethodsServlet {
 
           // Annoyingly, all users need to exist before we can start linking them up
           // with connections, etc..
-         migrationStatus = "Creating users";
-         List<String> createdUsers = createAllUsers();
+          migrationStatus = "Creating users";
+          List<String> createdUsers = createAllUsers();
 
-         migrationStatus = "Migrating groups";
-         migrateAllGroups();
+          migrationStatus = "Migrating groups";
+          migrateAllGroups();
 
-         migrationStatus = "Migrating users";
-         migrateUsers(createdUsers);
+          migrationStatus = "Migrating users";
+          migrateUsers(createdUsers);
 
-         migrationStatus = "Migrating pooled content";
-         migratePooledContent();
+          migrationStatus = "Migrating pooled content";
+          migratePooledContent();
          
           migrationStatus = "Done!";
 
