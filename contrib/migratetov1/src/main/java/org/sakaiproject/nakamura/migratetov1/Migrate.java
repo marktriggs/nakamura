@@ -547,7 +547,7 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
     }
 
-    props.put("membershipsCount", String.valueOf(groupCount));
+    props.put("membershipsCount", groupCount);
 
     props.put("principals", StringUtils.join(filtered, ";"));
 
