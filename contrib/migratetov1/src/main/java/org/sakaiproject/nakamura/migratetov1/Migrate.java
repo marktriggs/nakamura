@@ -287,12 +287,36 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
+  private String[] filterToMigratedAuthorizables(String[] arr) throws Exception
+  {
+    if (arr == null) {
+      return null;
+    }
+
+    List<String> filtered = new ArrayList<String>();
+
+    for (String elt : arr) {
+      if (targetAM.findAuthorizable(elt) != null || isGroupIncluded(elt)) {
+        filtered.add(elt);
+      }
+    }
+
+    return filtered.toArray(new String[filtered.size()]);
+  }
+
+
   private Content makeContent(String path, Map<String,Object> properties) throws Exception
   {
     Map<String,Object> props = new HashMap<String,Object>(properties);
     props.remove("_id");
     props.remove("_versionHistoryId");
     props.remove("_readOnly");
+
+    for (String listProperty : new String[] { "rep:pooled-content-manager", "rep:pooled-content-viewer" }) {
+      if (props.containsKey(listProperty)) {
+        props.put(listProperty, filterToMigratedAuthorizables((String[])props.get(listProperty)));
+      }
+    }
 
     return new Content(path, props);
   }
