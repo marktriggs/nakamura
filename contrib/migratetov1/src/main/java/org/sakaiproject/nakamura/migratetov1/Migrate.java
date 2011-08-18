@@ -173,7 +173,7 @@ public class Migrate extends SlingSafeMethodsServlet {
   volatile Date migrationFinishTime = null;
 
 
-  private Set<String> includedGroups = new HashSet<String>();;
+  private Set<String> includedGroups = new HashSet<String>();
 
 
   private Map<String,Object> mapOf(Object ... stuff)
@@ -831,6 +831,13 @@ public class Migrate extends SlingSafeMethodsServlet {
         }
 
         try {
+          // Interesting note: walking over all of the pooled content items
+          // returned from the storage client actually yields an awful lot of
+          // duplicates.  I'm not sure if this is because of multiple versions,
+          // or deletes, or something else.  But anyway, there are around 4,000
+          // pooled content items returned by the above query, but only about
+          // 1200 unique paths.  The following conditional saves us migrating
+          // everything multiple times...
           if (targetCM.get((String)contentMap.get("_path")) == null) {
             Content obj = sourceCM.get((String)contentMap.get("_path"));
 
@@ -872,8 +879,6 @@ public class Migrate extends SlingSafeMethodsServlet {
 
       page++;
     }
-
-    LOGGER.info("DONE: Migrating pooled content");
   }
 
 
@@ -1067,7 +1072,8 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     if (pageContent != null) {
       targetCM.update(makeContent(poolId + "/" + contentId,
-                                  mapOf("page", pageContent)));
+                                  mapOf("page", pageContent,
+                                        "sling:resourceType", "sakai/pagecontent")));
     } else {
       LOGGER.warn("Couldn't find page content for {} (group: {})", content, group);
     }
@@ -1328,21 +1334,22 @@ public class Migrate extends SlingSafeMethodsServlet {
     if (migrationRunning.get()) {
       writer.println("Migration started at: " + migrationStartTime);
       writer.println("");
+      writer.println("Migration status: " + migrationStatus);
+      writer.println("");
       writer.println("Users created: " + usersCreated);
+      writer.println("Groups migrated: " + groupsMigrated);
       writer.println("Users migrated: " + usersMigrated);
       writer.println("Pooled content objects migrated: " + pooledContentMigrated);
-      writer.println("Groups migrated: " + groupsMigrated);
       writer.println("");
-      writer.println("Current time: " + new Date());
-      writer.println("");
-      writer.println("Migration status: " + migrationStatus);
+      if (migrationFinishTime != null) {
+        writer.println("Migration finished at: " + migrationFinishTime);
+      } else {
+        writer.println("Current time: " + new Date());
+      }
       writer.println("");
       writer.println("Mental health: Tattered    Mana: 91    Fatigue: 10");
       writer.println("");
 
-      if (migrationFinishTime != null) {
-        writer.println("Migration finished at: " + migrationFinishTime);
-      }
 
     } else {
       writer.println("No migration is currently running!");
