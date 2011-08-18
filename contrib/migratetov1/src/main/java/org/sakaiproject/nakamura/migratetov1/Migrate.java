@@ -571,7 +571,12 @@ public class Migrate extends SlingSafeMethodsServlet {
      
           if (obj.getPath().matches("(.*authprofile$|.*authprofile/basic.*)")) {
             // Set basic profile information readable to logged in users
-            AclModification.addAcl(false,
+            //
+            // THINKME: EDIT: Well, that was the plan, but it turns out various
+            // things break if the authprofile isn't readable for anonymous
+            // users too.
+            //
+            AclModification.addAcl(true,
                                    Permissions.CAN_READ,
                                    User.ANON_USER,
                                    acls);
