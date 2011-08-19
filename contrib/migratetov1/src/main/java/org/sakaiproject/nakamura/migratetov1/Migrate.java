@@ -1076,11 +1076,22 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   private void migratePage(Authorizable group, Content content) throws Exception
   {
+    if ("dashboard".equals(content.getProperty("pageType"))) {
+      LOGGER.info("Skipping dashboard page for content: {} (group: {})", content, group);
+      return;
+    }
+
     String path =  content.getPath();
     String pageId = path.substring(path.lastIndexOf("/") + 1);
     String creator = (String)content.getProperty("_createdBy");
     String contentId = generateWidgetId();
     String poolId = clusterTrackingService.getClusterUniqueId();
+    String pageContent = getPageContent(content);
+
+    if (pageContent == null) {
+      LOGGER.warn("Couldn't find page content for {} (group: {})", content, group);
+      return;
+    }
 
     String structure = "{\"__PAGE_ID__\":{\"_title\":\"__PAGE_TITLE__\",\"_order\":0,\"_ref\":\"__CONTENT_ID__\",\"_nonEditable\":false,\"main\":{\"_title\":\"__PAGE_TITLE__\",\"_order\":0,\"_ref\":\"__CONTENT_ID__\",\"_nonEditable\":false}}}";
     structure = (structure
@@ -1101,17 +1112,11 @@ public class Migrate extends SlingSafeMethodsServlet {
                                       "sling:resourceType", "sakai/pooled-content",
                                       "structure0", structure)));
 
+    targetCM.update(makeContent(poolId + "/" + contentId,
+                                mapOf("page", pageContent,
+                                      "sling:resourceType", "sakai/pagecontent")));
+
     setWorldReadableGroupWritable(poolId, group, Security.ZONE_CONTENT);
-
-    String pageContent = getPageContent(content);
-
-    if (pageContent != null) {
-      targetCM.update(makeContent(poolId + "/" + contentId,
-                                  mapOf("page", pageContent,
-                                        "sling:resourceType", "sakai/pagecontent")));
-    } else {
-      LOGGER.warn("Couldn't find page content for {} (group: {})", content, group);
-    }
 
     addToDocstructure(group, pageId, (String)content.getProperty("pageTitle"), poolId);
 
