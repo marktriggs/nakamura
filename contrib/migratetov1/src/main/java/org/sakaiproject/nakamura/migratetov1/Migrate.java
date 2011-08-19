@@ -1376,7 +1376,7 @@ public class Migrate extends SlingSafeMethodsServlet {
 
   private void showDashboard(PrintWriter writer)
   {
-    if (migrationRunning.get()) {
+    if (migrationStartTime != null) {
       writer.println("Migration started at: " + migrationStartTime);
       writer.println("");
       writer.println("Migration status: " + migrationStatus);
