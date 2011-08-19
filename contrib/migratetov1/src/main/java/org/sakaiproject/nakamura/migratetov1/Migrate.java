@@ -1265,7 +1265,8 @@ public class Migrate extends SlingSafeMethodsServlet {
                               "sakai:group-title", String.format("%s (Members)", groupId),
                               "sakai:pseudogroupparent", groupId,
                               "contentCount", 0,
-                              "sakai:pseudoGroup", true,
+                              // AAaargh!  Why does this have to be a string?
+                              "sakai:pseudoGroup", "true",
                               "name", groupId + "-member",
                               "email", "unknown",
                               "firstName", "unknown",
@@ -1290,7 +1291,8 @@ public class Migrate extends SlingSafeMethodsServlet {
                               "sakai:group-title", String.format("%s (Managers)", groupId),
                               "sakai:pseudogroupparent", groupId,
                               "contentCount", 0,
-                              "sakai:pseudoGroup", true,
+                              // AAaargh!  Why does this have to be a string?
+                              "sakai:pseudoGroup", "true",
                               "name", groupId + "-manager",
                               "email", "unknown",
                               "firstName", "unknown",
