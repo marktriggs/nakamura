@@ -1445,6 +1445,7 @@ public class Migrate extends SlingSafeMethodsServlet {
         }
 
         migrationFinishTime = new Date();
+        migrationRunning.getAndSet(false);
       } else {
         response.getWriter().write("Migration already running!");
       }
