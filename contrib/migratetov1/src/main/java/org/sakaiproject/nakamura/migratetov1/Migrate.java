@@ -1164,6 +1164,56 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
+  // A couple of groups seem to have funny nodes like:
+  //
+  //   /~groupname/public/authprofile/{sakai:tags,sakai:tag-uuid}
+  //
+  // This breaks the current UX code, which is expecting to find these as
+  // properties on the authprofile node.
+  //
+  private void fixBogusTagNodes(Authorizable group) throws Exception
+  {
+    String groupId = group.getId();
+    String groupPath = "a:" + groupId;
+    String authProfilePath = groupPath + "/public/authprofile";
+
+    for (String nodeName : new String[] { "sakai:tags", "sakai:tag-uuid" }) {
+      String weirdPath = authProfilePath + "/" + nodeName;
+      Content weirdNode = targetCM.get(weirdPath);
+
+      if (weirdNode != null) {
+
+        List<String> values = new ArrayList<String>();
+
+        int i = 0;
+        while (true) {
+          String value = (String) weirdNode.getProperty("__array__" + i + "__");
+
+          if (value == null) {
+            break;
+          }
+
+          values.add(value);
+        }
+
+        // Bye.
+        targetCM.delete(weirdPath);
+
+        Content authProfile = targetCM.get(authProfilePath);
+
+        if (authProfile != null) {
+          authProfile.setProperty(nodeName, values.toArray(new String[values.size()]));
+          targetCM.update(authProfile);
+
+          LOGGER.info("Fixed bogus path: '{}'.  Node is now: {}",
+                      weirdPath,
+                      authProfile);
+        }
+      }
+    }
+  }
+
+
   private void migrateGroup(Authorizable group) throws Exception
   {
     LOGGER.info ("Migrating group: {}", group);
@@ -1310,6 +1360,7 @@ public class Migrate extends SlingSafeMethodsServlet {
 
     migrateAuthorizableHome(groupPath);
 
+    fixBogusTagNodes(group);
 
     LOGGER.info("Building docstructure...");
     buildDocstructure(group);
