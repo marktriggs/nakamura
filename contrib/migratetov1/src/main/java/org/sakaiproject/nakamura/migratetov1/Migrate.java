@@ -1094,9 +1094,9 @@ public class Migrate extends SlingSafeMethodsServlet {
                  .replaceAll("__PAGE_TITLE__", (String)content.getProperty("pageTitle"))
                  .replaceAll("__CONTENT_ID__", contentId));
 
-    // THINKE: does "permissions" need to be cleverer?
+    // THINKE: does "permissions" need to be cleverer?  Should the copyright be something else?
     targetCM.update(makeContent(poolId,
-                                mapOf("sakai:copyright", "creativecommons",
+                                mapOf("sakai:copyright", "copyrighted",
                                       "_mimeType", "x-sakai/document",
                                       "sakai:description", "",
                                       "sakai:permissions", "public",
