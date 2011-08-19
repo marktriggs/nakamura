@@ -1194,6 +1194,7 @@ public class Migrate extends SlingSafeMethodsServlet {
           }
 
           values.add(value);
+          i++;
         }
 
         // Bye.
