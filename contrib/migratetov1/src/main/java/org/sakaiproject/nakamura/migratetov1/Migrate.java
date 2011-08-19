@@ -296,7 +296,9 @@ public class Migrate extends SlingSafeMethodsServlet {
     List<String> filtered = new ArrayList<String>();
 
     for (String elt : arr) {
-      if (targetAM.findAuthorizable(elt) != null || isGroupIncluded(elt)) {
+      Authorizable auth = targetAM.findAuthorizable(elt);
+      if ((auth != null && !auth.isGroup())
+          || isGroupIncluded(elt)) {
         filtered.add(elt);
       }
     }
@@ -312,7 +314,7 @@ public class Migrate extends SlingSafeMethodsServlet {
     props.remove("_versionHistoryId");
     props.remove("_readOnly");
 
-    for (String listProperty : new String[] { "rep:pooled-content-manager", "rep:pooled-content-viewer" }) {
+    for (String listProperty : new String[] { "sakai:pooled-content-manager", "sakai:pooled-content-viewer" }) {
       if (props.containsKey(listProperty)) {
         props.put(listProperty, filterToMigratedAuthorizables((String[])props.get(listProperty)));
       }
