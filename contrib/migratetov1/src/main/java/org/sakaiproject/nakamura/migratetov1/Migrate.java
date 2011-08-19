@@ -1022,11 +1022,6 @@ public class Migrate extends SlingSafeMethodsServlet {
       }
     }
 
-    if (pageContent == null) {
-      LOGGER.error("Couldn't find page content for: {}", content);
-      return "";
-    }
-
     return pageContent;
   }
 
@@ -1102,9 +1097,9 @@ public class Migrate extends SlingSafeMethodsServlet {
     // THINKE: does "permissions" need to be cleverer?
     targetCM.update(makeContent(poolId,
                                 mapOf("sakai:copyright", "creativecommons",
-                                      "sakai:custom-mimetype", "x-sakai/document",
+                                      "_mimeType", "x-sakai/document",
                                       "sakai:description", "",
-                                      "sakai:permissions"," public",
+                                      "sakai:permissions", "public",
                                       "sakai:pool-content-created-for", creator,
                                       "sakai:pooled-content-file-name", pageId,
                                       "sakai:pooled-content-manager", new String[] { group.getId() + "-manager", creator },
