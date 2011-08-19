@@ -893,6 +893,11 @@ public class Migrate extends SlingSafeMethodsServlet {
               obj.setProperty("_mimeType", "application/rtf");
             }
 
+            // And add a copyright status if there isn't one.
+            if (obj.getProperty("sakai:copyright") == null) {
+              obj.setProperty("sakai:copyright", "unspecified");
+            }
+
             migrateContent(obj);
             pooledContentMigrated++;
           }
@@ -1094,9 +1099,9 @@ public class Migrate extends SlingSafeMethodsServlet {
                  .replaceAll("__PAGE_TITLE__", (String)content.getProperty("pageTitle"))
                  .replaceAll("__CONTENT_ID__", contentId));
 
-    // THINKE: does "permissions" need to be cleverer?  Should the copyright be something else?
+    // THINKE: does "permissions" need to be cleverer?
     targetCM.update(makeContent(poolId,
-                                mapOf("sakai:copyright", "copyrighted",
+                                mapOf("sakai:copyright", "unspecified",
                                       "_mimeType", "x-sakai/document",
                                       "sakai:description", "",
                                       "sakai:permissions", "public",
