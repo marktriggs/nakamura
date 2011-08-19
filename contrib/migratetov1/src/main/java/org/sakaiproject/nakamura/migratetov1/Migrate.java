@@ -960,14 +960,18 @@ public class Migrate extends SlingSafeMethodsServlet {
   }
 
 
-  private String getMembersString(String groupName, String[] members)
+  private String getMembersString(String groupName, String[] ... memberLists)
   {
     List<String> filtered = new ArrayList<String>();
 
-    if (members != null) {
-      for (String member : members) {
-        if (!member.equals(groupName + "-managers")) {
-          filtered.add(member);
+    if (memberLists != null) {
+      for (String[] members : memberLists) {
+        if (members != null) {
+          for (String member : members) {
+            if (!member.equals(groupName + "-managers")) {
+              filtered.add(member);
+            }
+          }
         }
       }
     }
@@ -1289,7 +1293,15 @@ public class Migrate extends SlingSafeMethodsServlet {
                               "membershipsCount", 1,
                               "sakai:excludeSearch", true,
                               "sakai:group-visible", props.get("sakai:group-visible"),
-                              "members", getMembersString(groupId, ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers())));
+
+                              // It looks like group managers are either going
+                              // to appear as members of the mygroup-managers
+                              // group, OR in the rep:group-managers property of
+                              // the group itself.  Add both sets of people to
+                              // the managers group.
+                              "members", getMembersString(groupId,
+                                                          ((Group)sourceAM.findAuthorizable(groupId + "-managers")).getMembers(),
+                                                          (String[])props.get("rep:group-managers"))));
 
     setWorldReadableGroupWritable(groupPath + "-manager", group, Security.ZONE_CONTENT);
     setWorldReadableGroupWritable(groupId + "-manager", group, Security.ZONE_AUTHORIZABLES);
