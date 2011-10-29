@@ -60,6 +60,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -189,7 +190,7 @@ public class ProfileServiceImpl implements ProfileService {
    *
    * @see org.sakaiproject.nakamura.api.profile.ProfileService#getProfileMap(javax.jcr.Node)
    */
-  public ValueMap getResolvedProfileMap(Authorizable authorizable, Content profileContent, Session jcrSession) throws RepositoryException {
+  public ValueMap getResolvedProfileMap(Authorizable authorizable, Content profileContent, Session jcrSession) throws RepositoryException, StorageClientException, AccessDeniedException {
     // Get the data from our external providers.
     Map<String, List<ProviderSettings>> providersMap = scanForProviders(profileContent, jcrSession);
     Map<Content, Future<Map<String, Object>>> providedNodeData = new HashMap<Content, Future<Map<String, Object>>>();
@@ -202,7 +203,7 @@ public class ProfileServiceImpl implements ProfileService {
     try {
       // Return it as a ValueMap.
       ValueMap map = new ValueMapDecorator(new HashMap<String, Object>());
-      handleNode(profileContent, providedNodeData, map);
+      handleNode(jcrSession, profileContent, providedNodeData, map);
       final String resourceType = (String) profileContent
           .getProperty("sling:resourceType");
       if (ProfileConstants.USER_PROFILE_RT.equals(resourceType)) {
@@ -232,36 +233,55 @@ public class ProfileServiceImpl implements ProfileService {
    * @throws InterruptedException
    * @throws ExecutionException
    */
-  protected void handleNode(Content profileContent, Map<Content, Future<Map<String, Object>>> baseMap,
-      Map<String, Object> map) throws RepositoryException, InterruptedException,
-      ExecutionException {
-    // If our map contains this node, that means one of the provides had some information
-    // for it.
-    // We will use the provider.
-    if (baseMap.containsKey(profileContent.getPath())) {
-      map.putAll(baseMap.get(profileContent.getPath()).get());
-    } else {
+  protected void handleNode(Session session, Content profileContent, Map<Content, Future<Map<String, Object>>> baseMap, Map<String, Object> map)
+    throws RepositoryException, InterruptedException, ExecutionException, StorageClientException, AccessDeniedException {
 
-      // The node wasn't found in the baseMap.
-      // We just dump the Sparse properties excluding any system properties.
-      for ( Entry<String, Object> e : profileContent.getProperties().entrySet()) {
-        String k = e.getKey();
-        if ( !k.startsWith("_") &&  !k.startsWith(":") ) {
-          map.put(k,e.getValue());
+    org.sakaiproject.nakamura.api.lite.Session sparseSession = StorageClientUtils.adaptToSession(session);
+    ContentManager contentManager = sparseSession.getContentManager();
+
+    String root = profileContent.getPath();
+    Iterator<Content> it = contentManager.listDescendants(root);
+
+    while (it.hasNext()) {
+      Content node = it.next();
+      String path = node.getPath();
+      if (path.startsWith(root)) {
+        Map<String, Object> target = map;
+
+        for (String name : path.substring(root.length()).split("/")) {
+          if ("".equals(name)) {
+            continue;
+          }
+
+          if (!target.containsKey(name)) {
+            ValueMap childMap = new ValueMapDecorator(new HashMap<String, Object>());
+            target.put(name, childMap);
+          }
+
+          target = (Map<String, Object>) target.get(name);
         }
-      }
-      map.put("_path", PathUtils.translateAuthorizablePath(profileContent.getPath()));
 
-      // We loop over the child nodes, but each node get checked against the baseMap
-      // again.
-      for (Content childProfile : profileContent.listChildren()) {
-        ValueMap childMap = new ValueMapDecorator(new HashMap<String, Object>());
-        handleNode(childProfile, baseMap, childMap);
-        map.put(StorageClientUtils.getObjectName(childProfile.getPath()), childMap);
+        // If our map contains this node, that means one of the provides had some information
+        // for it.
+        // We will use the provider.
+        if (baseMap.containsKey(node.getPath())) {
+          target.putAll(baseMap.get(node.getPath()).get());
+        } else {
+          // The node wasn't found in the baseMap.
+          // We just dump the Sparse properties excluding any system properties.
+
+          for ( Entry<String, Object> e : node.getProperties().entrySet()) {
+            String k = e.getKey();
+            if ( !k.startsWith("_") &&  !k.startsWith(":") ) {
+              target.put(k,e.getValue());
+            }
+          }
+          
+          target.put("_path", PathUtils.translateAuthorizablePath(node.getPath()));
+        }
       }
     }
   }
-
 
 
   /**
@@ -276,36 +296,38 @@ public class ProfileServiceImpl implements ProfileService {
    * @throws RepositoryException
    */
   private Map<String, List<ProviderSettings>> scanForProviders(Content profileContent, Session jcrSession)
-      throws RepositoryException {
+    throws RepositoryException, StorageClientException, AccessDeniedException {
     Map<String, List<ProviderSettings>> providerMap = new HashMap<String, List<ProviderSettings>>();
-    return scanForProviders("", profileContent, providerMap, jcrSession);
-  }
 
-  /**
-   * @param path
-   * @param profileContent
-   * @param providerMap
-   * @param jcrSession 
-   * @return
-   * @throws RepositoryException
-   */
-  private Map<String, List<ProviderSettings>> scanForProviders(String path, Content profileContent,
-      Map<String, List<ProviderSettings>> providerMap, Session jcrSession) throws RepositoryException {
-    ProviderSettings settings = providerSettingsFactory.newProviderSettings(path, profileContent, jcrSession);
-    if (settings == null) {
-      for (Content childProfileContent : profileContent.listChildren()) {
-        scanForProviders(StorageClientUtils.newPath(path, StorageClientUtils.getObjectName(childProfileContent.getPath())), childProfileContent, providerMap, jcrSession);
+    String root = profileContent.getPath();
+
+    org.sakaiproject.nakamura.api.lite.Session sparseSession = StorageClientUtils.adaptToSession(jcrSession);
+    ContentManager contentManager = sparseSession.getContentManager();
+    Iterator<Content> it = contentManager.listDescendants(root);
+
+    while (it.hasNext()) {
+      Content node = it.next();
+
+      if (!node.getPath().startsWith(root)) {
+        continue;
       }
-    } else {
 
-      List<ProviderSettings> l = providerMap.get(settings.getProvider());
+      String path = node.getPath().substring(root.length());
+      
+      ProviderSettings settings = providerSettingsFactory.newProviderSettings(path, node, jcrSession);
 
-      if (l == null) {
-        l = new ArrayList<ProviderSettings>();
-        providerMap.put(settings.getProvider(), l);
+      if (settings != null) {
+
+        List<ProviderSettings> l = providerMap.get(settings.getProvider());
+
+        if (l == null) {
+          l = new ArrayList<ProviderSettings>();
+          providerMap.put(settings.getProvider(), l);
+        }
+        l.add(settings);
       }
-      l.add(settings);
     }
+
     return providerMap;
   }
 
