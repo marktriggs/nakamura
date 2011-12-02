@@ -80,7 +80,8 @@ import java.util.ArrayList;
     @Property(name = "type", value = Query.SOLR),
     @Property(name = "event.topics", value = {
         "org/sakaiproject/nakamura/lite/content/DELETE",
-        "org/sakaiproject/nakamura/solr/COMMIT"})})
+        "org/sakaiproject/nakamura/solr/COMMIT",
+        "org/sakaiproject/nakamura/solr/SOFT_COMMIT"})})
 
   public class SolrResultSetFactory implements ResultSetFactory, EventHandler {
   @Property(longValue = 100L)
@@ -198,7 +199,8 @@ import java.util.ArrayList;
       if (path != null) {
         storeDeletedPath(path);
       }
-    } else if (topic.equals("org/sakaiproject/nakamura/solr/COMMIT")) {
+    } else if (topic.equals("org/sakaiproject/nakamura/solr/COMMIT") ||
+               topic.equals("org/sakaiproject/nakamura/solr/SOFT_COMMIT")) {
       clearDeletedPaths();
     }
   }
