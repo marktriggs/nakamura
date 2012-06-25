@@ -651,6 +651,7 @@
   </requestHandler>
   -->
   
+  <searchComponent name="query" class="org.sakaiproject.nakamura.solr.NakamuraQueryComponent" />
 
   <!-- config for the admin interface -->
   <admin>

@@ -152,7 +152,7 @@ public class SolrResultSetFactory implements ResultSetFactory {
 
       // apply readers restrictions.
       if (asAnon) {
-        filterQueries.add("readers:" + User.ANON_USER);
+        queryOptions.put("readers", User.ANON_USER);
       } else {
         Session session = StorageClientUtils.adaptToSession(request.getResourceResolver().adaptTo(javax.jcr.Session.class));
         if (!User.ADMIN_USER.equals(session.getUserId())) {
@@ -160,10 +160,10 @@ public class SolrResultSetFactory implements ResultSetFactory {
           Authorizable user = am.findAuthorizable(session.getUserId());
           Set<String> readers = Sets.newHashSet();
           for (Iterator<Group> gi = user.memberOf(am); gi.hasNext();) {
-            readers.add(ClientUtils.escapeQueryChars(gi.next().getId()));
+            readers.add(gi.next().getId());
           }
-          readers.add(ClientUtils.escapeQueryChars(session.getUserId()));
-          filterQueries.add("readers:(" + StringUtils.join(readers," OR ") + ")");
+          readers.add(session.getUserId());
+          queryOptions.put("readers", StringUtils.join(readers,","));
         }
       }
 
