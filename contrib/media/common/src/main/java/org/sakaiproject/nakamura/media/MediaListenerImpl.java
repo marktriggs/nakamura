@@ -19,14 +19,11 @@
 package org.sakaiproject.nakamura.media;
 
 import java.io.IOException;
+import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.util.Map;
-import javax.jms.Connection;
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.MessageProducer;
-import javax.jms.Queue;
-import javax.jms.Session;
+
+import org.sakaiproject.nakamura.media.util.DurableQueue;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -77,18 +74,13 @@ public class MediaListenerImpl implements MediaListener, EventHandler, FileUploa
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MediaListenerImpl.class);
 
-  private String QUEUE_NAME = "MEDIA";
-
-  @Reference
-  private ConnectionFactoryService connectionFactoryService;
-  private ConnectionFactory connectionFactory;
-
   @Reference
   protected Repository sparseRepository;
 
   @Reference
   protected MediaService mediaService;
 
+  private DurableQueue queue;
 
   private MediaCoordinator mediaCoordinator;
   private int maxRetries;
@@ -101,15 +93,19 @@ public class MediaListenerImpl implements MediaListener, EventHandler, FileUploa
   protected void activate(Map<?, ?> props) {
     LOGGER.info("Activating Media bundle");
 
-    connectionFactory = connectionFactoryService.getDefaultPooledConnectionFactory();
-
     maxRetries = PropertiesUtil.toInteger(props.get(MAX_RETRIES), MAX_RETRIES_DEFAULT);
     retryMs = PropertiesUtil.toInteger(props.get(RETRY_MS), RETRY_MS_DEFAULT);
     workerCount = PropertiesUtil.toInteger(props.get(WORKER_COUNT), WORKER_COUNT_DEFAULT);
     pollFrequency = PropertiesUtil.toInteger(props.get(POLL_FREQUENCY), POLL_FREQUENCY_DEFAULT);
 
-    mediaCoordinator = new MediaCoordinator(connectionFactory, QUEUE_NAME,
-        sparseRepository, mediaService, maxRetries, retryMs, workerCount, pollFrequency);
+    try {
+      queue = new DurableQueue("/tmp/THISWILLNEEDTOBESOMETHINGBETTERTHANTHIS.txt");
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    mediaCoordinator = new MediaCoordinator(queue, sparseRepository, mediaService, maxRetries,
+                                            retryMs, workerCount, pollFrequency);
     mediaCoordinator.start();
   }
 
@@ -130,20 +126,9 @@ public class MediaListenerImpl implements MediaListener, EventHandler, FileUploa
     LOGGER.info("Content updated: {}", pid);
 
     try {
-      Connection conn = connectionFactory.createConnection();
-      Session jmsSession = conn.createSession(false, Session.AUTO_ACKNOWLEDGE);
-      Queue mediaQueue = jmsSession.createQueue(QUEUE_NAME);
-
-      MessageProducer producer = jmsSession.createProducer(mediaQueue);
-
-      producer.send(MediaUtils.message(jmsSession, "pid", pid));
-
-      producer.close();
-      jmsSession.close();
-      conn.close();
-
-    } catch (JMSException e) {
-      LOGGER.error("Failed when adding content PID to JMS queue: {}", e);
+      queue.add(pid);
+    } catch (IOException e) {
+      LOGGER.error("Failed when adding content PID to queue: {}", e);
       e.printStackTrace();
     }
   }

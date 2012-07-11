@@ -1,5 +1,6 @@
 package org.sakaiproject.nakamura.media;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -19,9 +20,6 @@ import org.sakaiproject.nakamura.api.media.ErrorHandler;
 import org.sakaiproject.nakamura.api.media.MediaStatus;
 import org.sakaiproject.nakamura.api.media.MediaServiceException;
 
-import javax.jms.Connection;
-import javax.jms.MessageProducer;
-import javax.jms.Queue;
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.broker.BrokerService;
 import org.sakaiproject.nakamura.api.lite.content.Content;
@@ -44,13 +42,10 @@ import static junit.framework.Assert.assertFalse;
 import static junit.framework.Assert.fail;
 import com.google.common.collect.ImmutableMap;
 
+import org.sakaiproject.nakamura.media.util.DurableQueue;
+
 
 public class MediaCoordinatorTest {
-
-  private static String TEST_QUEUE = "MEDIA_TEST";
-  private static String JMS_URL = "tcp://localhost:12331";
-  private static BrokerService broker;
-  private static ActiveMQConnectionFactory connectionFactory;
 
   private int POLL_MS = 100;
   private int MAX_WAIT_MS = 10000;
@@ -138,19 +133,7 @@ public class MediaCoordinatorTest {
   MockMediaService mediaService;
   MediaCoordinator mc;
 
-
-  @BeforeClass
-  public static void init() throws Exception {
-    broker = new BrokerService();
-    broker.setBrokerName(TEST_QUEUE);
-    broker.addConnector(JMS_URL);
-
-    broker.start();
-
-
-    connectionFactory = new ActiveMQConnectionFactory(JMS_URL);
-  }
-  
+  DurableQueue queue;
 
   @Before
   public void setUp() throws Exception {
@@ -158,8 +141,13 @@ public class MediaCoordinatorTest {
     adminSession = repository.loginAdministrative();
     cm = adminSession.getContentManager();
 
+    File tempfile = File.createTempFile("durablequeue", "dat");
+    tempfile.deleteOnExit();
+
+    queue = new DurableQueue(tempfile.getPath());
+
     mediaService = new MockMediaService();
-    mc = new MediaCoordinator(connectionFactory, TEST_QUEUE, repository, mediaService,
+    mc = new MediaCoordinator(queue, repository, mediaService,
         MediaListenerImpl.MAX_RETRIES_DEFAULT, MediaListenerImpl.RETRY_MS_DEFAULT,
         MediaListenerImpl.WORKER_COUNT_DEFAULT, 500);
 
@@ -169,18 +157,7 @@ public class MediaCoordinatorTest {
 
   private void contentUpdated(String pid) {
     try {
-      Connection conn = connectionFactory.createConnection();
-      javax.jms.Session jmsSession = conn.createSession(false, javax.jms.Session.AUTO_ACKNOWLEDGE);
-      Queue mediaQueue = jmsSession.createQueue(TEST_QUEUE);
-
-      MessageProducer producer = jmsSession.createProducer(mediaQueue);
-
-      producer.send(MediaUtils.message(jmsSession, "pid", pid));
-
-      producer.close();
-      jmsSession.close();
-      conn.close();
-
+      queue.add(pid);
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e);
     }
@@ -432,12 +409,5 @@ public class MediaCoordinatorTest {
   public void tearDown() throws Exception {
     mc.shutdown();
     adminSession.logout();
-  }
-
-
-  @AfterClass
-  public static void destroy() throws Exception
-  {
-    broker.stop();
   }
 }

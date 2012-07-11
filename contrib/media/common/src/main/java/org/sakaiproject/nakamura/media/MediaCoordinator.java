@@ -6,18 +6,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.Connection;
-import javax.jms.MessageListener;
-import javax.jms.MessageConsumer;
-import javax.jms.Session;
-import javax.jms.Queue;
-import javax.jms.Message;
-import javax.jms.JMSException;
-
-import org.apache.activemq.ActiveMQSession;
 import java.util.Map;
 import java.util.HashMap;
+
+import java.util.Set;
+import java.util.HashSet;
+
 
 import java.util.concurrent.Executors;
 import java.util.concurrent.ExecutorService;
@@ -38,20 +32,17 @@ import org.sakaiproject.nakamura.api.media.MediaServiceException;
 import org.sakaiproject.nakamura.api.media.ErrorHandler;
 import org.sakaiproject.nakamura.util.telemetry.TelemetryCounter;
 
+import org.sakaiproject.nakamura.media.util.DurableQueue;
+
 
 public class MediaCoordinator implements Runnable {
   private static final Logger LOGGER = LoggerFactory
     .getLogger(MediaCoordinator.class);
 
+  DurableQueue incoming;
+
   protected Repository sparseRepository;
-
-  private ConnectionFactory connectionFactory;
-  private String queueName;
   private AtomicBoolean running;
-
-  private Connection conn = null;
-  private Session jmsSession = null;
-  private MessageConsumer mediaQueueConsumer = null;
 
   Thread activeThread;
 
@@ -63,11 +54,9 @@ public class MediaCoordinator implements Runnable {
   private int workerCount;
   private int pollFrequency;
 
-  public MediaCoordinator(ConnectionFactory connectionFactory, String queueName,
-      Repository sparseRepository, MediaService mediaService, int maxRetries,
-      int retryMs, int workerCount, int pollFrequency) {
-    this.connectionFactory = connectionFactory;
-    this.queueName = queueName;
+  public MediaCoordinator(DurableQueue incoming, Repository sparseRepository, MediaService mediaService,
+                          int maxRetries, int retryMs, int workerCount, int pollFrequency) {
+    this.incoming = incoming;
     this.sparseRepository = sparseRepository;
     this.mediaService = mediaService;
 
@@ -149,46 +138,6 @@ public class MediaCoordinator implements Runnable {
                       e.getMessage());
         }
       }
-    }
-  }
-
-
-  private void connectToJMS(final LinkedBlockingQueue<Message> incoming) {
-    try {
-      conn = connectionFactory.createConnection();
-      conn.start();
-
-      jmsSession = conn.createSession(false, ActiveMQSession.INDIVIDUAL_ACKNOWLEDGE);
-
-      Queue mediaQueue = jmsSession.createQueue(queueName);
-      mediaQueueConsumer = jmsSession.createConsumer(mediaQueue);
-
-      mediaQueueConsumer.setMessageListener(new MessageListener() {
-          public void onMessage(Message msg) {
-            try {
-              LOGGER.info("Received JMS message for pid {}", msg.getStringProperty("pid"));
-            } catch (JMSException e) {
-              LOGGER.info("JMS exception onMessage: {}", e);
-              e.printStackTrace();
-            }
-            incoming.add(msg);
-          }
-        });
-
-    } catch (JMSException e) {
-      LOGGER.error("Fatal: Can't connect to JMS queue.  Aborting.");
-      throw new RuntimeException(e.getMessage(), e);
-    }
-  }
-
-
-  private void disconnectFromJMS() {
-    try {
-      mediaQueueConsumer.close();
-      jmsSession.rollback();
-      jmsSession.close();
-      conn.close();
-    } catch (JMSException e) {
     }
   }
 
@@ -329,39 +278,13 @@ public class MediaCoordinator implements Runnable {
   }
 
 
-  private void clearDuplicates(LinkedBlockingQueue<Message> incoming, String pid) {
-    try {
-      // A bit funny to wait like this, but if we give a new file upload a
-      // few seconds we can usually handle the initial upload and all its
-      // events in one shot.  Just a dumb optimisation.
-      Thread.sleep(pollFrequency);
-    } catch (InterruptedException e) {}
-
-    for (Message msg : incoming) {
-      try {
-        if (pid.equals(msg.getStringProperty("pid")) &&
-            incoming.remove(msg)) {
-
-          // We're about to handle this message, so skip the others
-          LOGGER.info("Discarded duplicate message: {}", msg);
-          msg.acknowledge();
-        }
-      } catch (JMSException e) {
-        LOGGER.warn("Got a JMSException while clearing duplicates: {}",
-                    e);
-        e.printStackTrace();
-      }
-    }
-  }
-
-
   private class FailedJob
   {
-    public String jobId;
+    public String pid;
     public long time;
 
-    public FailedJob(String jobId, long time) {
-      this.jobId = jobId;
+    public FailedJob(String pid, long time) {
+      this.pid = pid;
       this.time = time;
     }
   }
@@ -375,22 +298,27 @@ public class MediaCoordinator implements Runnable {
   public void run() {
     LOGGER.info("Running MediaCoordinator");
 
-    final LinkedBlockingQueue<Message> incoming = new LinkedBlockingQueue<Message>();
-    final LinkedBlockingQueue<String> completed = new LinkedBlockingQueue<String>();
     final LinkedBlockingQueue<FailedJob> failed = new LinkedBlockingQueue<FailedJob>();
 
-    connectToJMS(incoming);
-
     ExecutorService[] workers = createWorkerPool();
-    Map<String, Message> inProgress = new HashMap<String, Message>();
     Map<String, Integer> retryCounts = new HashMap<String, Integer>();
 
     Slowdown slowdown = new Slowdown((long)(pollFrequency));
     while (running.get()) {
       try {
-        Message msg = null;
+
+        String msg = null;
+
         try {
-          msg = incoming.poll(pollFrequency, TimeUnit.MILLISECONDS);
+          msg = incoming.take(pollFrequency);
+
+          if (msg != null) {
+            Thread.sleep(1000);
+            while (msg.equals(incoming.peek())) {
+              // Don't need the duplicates...
+              incoming.acknowledge(msg);
+            }
+          }
         } catch (InterruptedException e) {}
 
         if (!running.get()) {
@@ -398,14 +326,9 @@ public class MediaCoordinator implements Runnable {
         }
 
         if (msg != null) {
-          final String jobId = msg.getJMSMessageID();
-          final String pid = msg.getStringProperty("pid");
+          final String pid = msg;
 
           LOGGER.info("Pulled pid from queue: {}", pid);
-
-          clearDuplicates(incoming, pid);
-
-          inProgress.put(jobId, msg);
 
           // The hashing here ensures that same PID must always runs
           // on the same worker.  Workers will need to update the
@@ -422,11 +345,8 @@ public class MediaCoordinator implements Runnable {
 
                 try {
                   processObject(pid);
-
-                  completed.add(jobId);
-                  LOGGER.info("Worker completed processing {}",
-                              pid);
-
+                  incoming.acknowledge(pid);
+                  LOGGER.info("Processing complete for pid: {}", pid);
                 } catch (Exception e) {
                   LOGGER.warn("Failed while processing PID '{}'", pid);
                   e.printStackTrace();
@@ -434,31 +354,10 @@ public class MediaCoordinator implements Runnable {
                   LOGGER.warn("This job will be queued for retry in {} ms",
                               retryMs);
 
-                  failed.add(new FailedJob(jobId, System.currentTimeMillis()));
+                  failed.add(new FailedJob(pid, System.currentTimeMillis()));
                 }
               }
             });
-
-          LOGGER.info("Media waiting to process: {}; " +
-                      "Media in progress: {}",
-                      incoming.size(), inProgress.size());
-        }
-
-        // Remove objects marked as completed from the "in progress"
-        // queue
-        while (!completed.isEmpty()) {
-          String jobId = completed.poll();
-
-          Message completedMsg = inProgress.get(jobId);
-
-          if (completedMsg != null) {
-            LOGGER.info("Completed processing: {} (pid: {})",
-                        jobId,
-                        completedMsg.getStringProperty("pid"));
-
-            completedMsg.acknowledge();
-            inProgress.remove(jobId);
-          }
         }
 
 
@@ -470,34 +369,28 @@ public class MediaCoordinator implements Runnable {
 
               if (job != null && (System.currentTimeMillis() - job.time) > retryMs) {
                 job = failed.take();
-                Message failedMsg = inProgress.get(job.jobId);
+                String pid = job.pid;
 
-                if (failedMsg != null) {
-                  String pid = failedMsg.getStringProperty("pid");
+                int retriesSoFar = retryCounts.containsKey(pid) ? retryCounts.get(pid) : 0;
 
-                  inProgress.remove(job.jobId);
-                  int retriesSoFar = retryCounts.containsKey(pid) ? retryCounts.get(pid) : 0;
+                if (maxRetries >= 0 && (retriesSoFar + 1) > maxRetries) {
+                  LOGGER.error("Giving up on {} after {} failed retry attempts.",
+                               pid, retriesSoFar);
+                  TelemetryCounter.incrementValue("media", "Coordinator", "failures");
 
-                  if (maxRetries >= 0 && (retriesSoFar + 1) > maxRetries) {
-                    LOGGER.error("Giving up on {} after {} failed retry attempts.",
-                                 pid, retriesSoFar);
-                    TelemetryCounter.incrementValue("media", "Coordinator", "failures");
+                  retryCounts.remove(pid);
+                  incoming.acknowledge(pid);
 
-                    retryCounts.remove(pid);
-                    failedMsg.acknowledge();
-
-                    if (errorHandler != null) {
-                      errorHandler.error(pid);
-                    }
-                  } else {
-                    int retry = retriesSoFar + 1;
-                    LOGGER.info("Requeueing job for pid '{}' (retry #{})", pid, retry);
-                    TelemetryCounter.incrementValue("media", "Coordinator", "retries");
-
-                    retryCounts.put(pid, retry);
-                    incoming.add(failedMsg);
+                  if (errorHandler != null) {
+                    errorHandler.error(pid);
                   }
-                  
+                } else {
+                  int retry = retriesSoFar + 1;
+                  LOGGER.info("Requeueing job for pid '{}' (retry #{})", pid, retry);
+                  TelemetryCounter.incrementValue("media", "Coordinator", "retries");
+
+                  retryCounts.put(pid, retry);
+                  incoming.add(pid);
                 }
               } else {
                 break;
@@ -508,11 +401,9 @@ public class MediaCoordinator implements Runnable {
         }
 
 
-      } catch (JMSException e) {
-        LOGGER.error("JMS exception while waiting for message: {}", e);
+      } catch (Exception e) {
+        LOGGER.error("Exception while waiting for message: {}", e);
         e.printStackTrace();
-        LOGGER.error("Waiting {} ms before trying again",
-                     pollFrequency);
       }
 
       // Paranoia...
@@ -523,7 +414,5 @@ public class MediaCoordinator implements Runnable {
     for (ExecutorService worker : workers) {
       worker.shutdownNow();
     }
-
-    disconnectFromJMS();
   }
 }

@@ -18,89 +18,87 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 public class DurableQueue {
 
-    private File file;
-    private List<String> store;
-    private LinkedBlockingQueue<String> queue;
+  private File file;
+  private List<String> store;
+  private LinkedBlockingQueue<String> queue;
 
 
-    public DurableQueue(String filename)
-        throws FileNotFoundException, IOException {
+  public DurableQueue(String filename)
+    throws FileNotFoundException, IOException {
 
-        this.file = new File(filename);
+    this.file = new File(filename);
 
-        queue = new LinkedBlockingQueue<String>();
-        store = new ArrayList<String>();
+    queue = new LinkedBlockingQueue<String>();
+    store = new ArrayList<String>();
 
-        if (!file.exists()) {
-            return;
-        }
-
-        // Load the state from the original file
-        BufferedInputStream fh = new BufferedInputStream(new FileInputStream(file));
-        DataInputStream in = new DataInputStream(fh);
-
-        while (true) {
-            try {
-                String pid = in.readUTF();
-                store.add(pid);
-                queue.add(pid);
-            } catch (EOFException ex) {
-                break;
-            }
-        }
+    if (!file.exists()) {
+      return;
     }
 
+    // Load the state from the original file
+    BufferedInputStream fh = new BufferedInputStream(new FileInputStream(file));
+    DataInputStream in = new DataInputStream(fh);
 
-    private void snapshot() throws FileNotFoundException, IOException {
-
-        File tmpfile = new File(file.getName() + ".tmp");
-
-        BufferedOutputStream fh = null;
-        DataOutputStream out = null;
-
-        try {
-            fh = new BufferedOutputStream(new FileOutputStream(tmpfile));
-            out = new DataOutputStream(fh);
-
-            for (String pid : store) {
-                out.writeUTF(pid);
-            }
-        } finally {
-            if (out != null) {
-                out.close();
-                tmpfile.renameTo(file);
-            }
-        }
-    }
-
-
-    synchronized public void add(String pid)
-        throws FileNotFoundException, IOException {
-
+    while (true) {
+      try {
+        String pid = in.readUTF();
         store.add(pid);
-        snapshot();
         queue.add(pid);
+      } catch (EOFException ex) {
+        break;
+      }
     }
+  }
 
 
-    synchronized public void acknowledge(String pid)
-        throws FileNotFoundException, IOException {
+  private void snapshot() throws FileNotFoundException, IOException {
 
-        while (store.remove(pid)) {}
-        snapshot();
+    File tmpfile = new File(file.getName() + ".tmp");
+
+    BufferedOutputStream fh = null;
+    DataOutputStream out = null;
+
+    try {
+      fh = new BufferedOutputStream(new FileOutputStream(tmpfile));
+      out = new DataOutputStream(fh);
+
+      for (String pid : store) {
+        out.writeUTF(pid);
+      }
+    } finally {
+      if (out != null) {
+        out.close();
+        tmpfile.renameTo(file);
+      }
     }
+  }
 
 
-    // Not synchronized because the queue itself is synchronized, and we don't
-    // want to block adds when someone is waiting for an element to show up.
-    public String take(long ms) throws InterruptedException {
+  synchronized public void add(String pid)
+    throws FileNotFoundException, IOException {
 
-        String elt = queue.poll(ms, TimeUnit.MILLISECONDS);
+    store.add(pid);
+    snapshot();
+    queue.add(pid);
+  }
 
-        if (elt != null) {
-            while (queue.remove(elt)) {}
-        }
 
-        return elt;
-    }
+  synchronized public void acknowledge(String pid)
+    throws FileNotFoundException, IOException {
+
+    store.remove(pid);
+    snapshot();
+  }
+
+
+  public String take(long ms) throws InterruptedException {
+    String elt = queue.poll(ms, TimeUnit.MILLISECONDS);
+
+    return elt;
+  }
+
+
+  public String peek() {
+    return queue.peek();
+  }
 }

@@ -52,24 +52,6 @@ public class DurableQueueTest {
 
 
   @Test
-  public void testDeDupe() throws Exception {
-
-    String path = tempFile();
-    DurableQueue dq = new DurableQueue(path);
-
-    dq.add("hello");
-    dq.add("hello");
-    dq.add("hello");
-    dq.add("world");
-    dq.add("hello");
-
-    assertEquals("hello", dq.take(1000));
-    assertEquals("world", dq.take(1000));
-    assertEquals(null, dq.take(100));
-  }
-
-
-  @Test
   public void testAcknowledge() throws Exception {
 
     String path = tempFile();
