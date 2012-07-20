@@ -109,12 +109,19 @@ public class FilesUtilsTest {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     Writer w = new PrintWriter(baos);
     JSONWriter write = new JSONWriter(w);
-    Content content = new Content("/path/to/file.doc", ImmutableMap.of("jcr:name", (Object)"file.doc", "jcr:path", "/path/to/file.doc"));
+    Content content = new Content("/path/to/file.doc", ImmutableMap.of("jcr:name", (Object)"file.doc", "jcr:path", "/path/to/file.doc"));    
+    ContentManager cm = mock(ContentManager.class);
+    Content comments = new Content("/path/to/file.doc/comments", ImmutableMap.of("name", (Object)"Tom", "text", "This is a test comment"));
     try {
+      when(session.getContentManager()).thenReturn(cm);
+      when(cm.get("/path/to/file.doc/comments")).thenReturn(comments);
       FileUtils.writeFileNode(content, session, write);
-    } catch (StorageClientException e) {
+    } catch (org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException e) {
+      fail("No exception should be thrown");
+    } catch (StorageClientException e1) {
       fail("No exception should be thrown");
     }
+       
     w.flush();
     String s = baos.toString("UTF-8");
     JSONObject j = new JSONObject(s);
@@ -221,11 +228,17 @@ public class FilesUtilsTest {
     Writer w = new PrintWriter(baos);
     JSONWriter write = new JSONWriter(w);
     Content content = new Content("/path/to/file.doc", ImmutableMap.of("jcr:name", (Object)"file.doc", "jcr:path", "/path/to/file.doc"));
+    ContentManager cm = mock(ContentManager.class);
+    Content comments = new Content("/path/to/file.doc/comments", ImmutableMap.of("name", (Object)"Tom", "text", "This is a test comment"));
     try {
+      when(session.getContentManager()).thenReturn(cm);
+      when(cm.get("/path/to/file.doc/comments")).thenReturn(comments);
       FileUtils.writeLinkNode(content, session, write);
-    } catch (StorageClientException e) {
+    } catch (org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException e) {
       fail("No exception should be thrown");
-    }
+    } catch (StorageClientException e1) {
+      fail("No exception should be thrown");
+    } 
     w.flush();
     String s = baos.toString("UTF-8");
     JSONObject j = new JSONObject(s);

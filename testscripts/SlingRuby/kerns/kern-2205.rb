@@ -25,7 +25,7 @@ class TC_Kern2205Test < Test::Unit::TestCase
     m = uniqueness()
     user = create_user "testuser-#{m}"
     
-    group = @um.create_full_group user.name, "testgroup-#{m}"
+    group = @um.create_full_group user, "testgroup-#{m}"
     group_details = group.details(@s)
     group_members_count = group_details["members"].size()
     assert_equal(2, group_members_count, "new simplegroups has 2 members")

@@ -66,9 +66,6 @@ import java.util.regex.Pattern;
  */
 @Component
 @Service(value = SparsePostOperation.class)
-@Reference(name = "moveCleaners", cardinality = ReferenceCardinality.OPTIONAL_MULTIPLE,
-    policy = ReferencePolicy.DYNAMIC, referenceInterface = MoveCleaner.class, bind = "bindCleaner",
-    unbind = "unbindCleaner")
 @Property(name = "sling.post.operation", value = "publish-sakaidoc-page")
 public class SakaiDocPagePublishOperation extends MoveOperation {
   

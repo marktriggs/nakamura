@@ -89,6 +89,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
+import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
@@ -152,6 +153,7 @@ import javax.servlet.http.HttpServletResponse;
 @SlingServlet(methods = { "GET", "PUT", "DELETE" }, resourceTypes = { "sakai/basiclti" })
 public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   private static final long serialVersionUID = 5985490994324951127L;
+  private static final String SAKAI_EXTERNAL_COURSE_ID = "sakai:external-course-id";
   private static final Logger LOG = LoggerFactory
       .getLogger(LiteBasicLTIConsumerServlet.class);
   /**
@@ -217,6 +219,8 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   private transient String instanceUrl;
   @Property(value = "http://sakaiproject.org", name = "lti.instanceUrl", description = "Needs documentation; not required but tasty...")
   protected static final String INSTANCE_URL = "lti.instanceUrl";
+
+  protected static final String EXTERNAL_COURSE_ID = "external_course_id";
 
   @Activate
   protected void activate(ComponentContext componentContext) throws Exception {
@@ -446,7 +450,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
       // FIXME how to determine site type?
       // CourseSection probably satisfies 90% of our use cases.
       // Maybe Group should be used for project sites?
-      launchProps.put(CONTEXT_TYPE, "CourseSection");
+      launchProps.put(CONTEXT_TYPE, "course");
 
       final org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager accessControlManager = session
           .getAccessControlManager();
@@ -463,7 +467,8 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
       } else if (canManageSite) {
         launchProps.put(ROLES, "Instructor");
       } else {
-        launchProps.put(ROLES, "Learner");
+      //OAE-33
+        launchProps.put(ROLES, "Student");
       }
       final boolean releaseNames = (Boolean)effectiveSettings
           .get(RELEASE_NAMES);
@@ -506,6 +511,20 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
 
       // we will always launch in an iframe for the time being
       launchProps.put(LAUNCH_PRESENTATION_DOCUMENT_TARGET, "iframe");
+
+      // pass external SIS course ID if we have one
+      if (groupId != null) {
+        // obtaining the group causes a security check
+        Group group = (Group) userManager.findAuthorizable(groupId);
+        LOG.debug("group = {}", group);
+
+        if (group.hasProperty(SAKAI_EXTERNAL_COURSE_ID)) {
+          final String externalCourseId = (String) group
+              .getProperty(SAKAI_EXTERNAL_COURSE_ID);
+          LOG.debug("sakai:external-course-id={}", externalCourseId);
+          launchProps.put(EXTERNAL_COURSE_ID, externalCourseId);
+        }
+      }
 
       final boolean debug = (Boolean) effectiveSettings.get(DEBUG);
       // might be useful for the remote end to know if debug is enabled...

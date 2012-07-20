@@ -64,13 +64,13 @@ import javax.servlet.http.HttpServletResponse;
     @Property(name = "sakai.cache.paths", value = { 
         "dev;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding", 
         "devwidgets;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding",
-        "p;Cache-Control:no-cache" }, 
+        "p;Cache-Control:no-cache"},
         description = "List of subpaths and max age for all content under subpath in seconds, setting to 0 makes it non cacheing"),
     @Property(name = "sakai.cache.patterns", value = { 
         "root;.*(js|css)$;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding",
         "root;.*html$;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding",
         "var;^/var/search/public/.*$;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:3600;Vary: Accept-Encoding",
-        "var;^/var/widgets.json$;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding"}, 
+        "var;^/var/widgets.json$;.lastmodified:unset;.cookies:unset;.requestCache:900;.expires:180000;Vary: Accept-Encoding" },
         description = "List of path prefixes followed by a regex. If the prefix starts with a root: it means files in the root folder that match the pattern."),
     @Property(name = "service.vendor", value = "The Sakai Foundation")})
 public class CacheControlFilter implements Filter {
@@ -100,12 +100,16 @@ public class CacheControlFilter implements Filter {
   @Property(intValue=5)
   private static final String FILTER_PRIORITY_CONF = "filter.priority";
 
-  
+  @Property(boolValue=false)
+  private static final String DISABLE_CACHE_FOR_UI_DEV = "disable.cache.for.dev.mode";
+
   @Reference 
   protected CacheManagerService cacheManagerService;
   
   @Reference
   protected ExtHttpService extHttpService;
+
+  private boolean disableForDevMode;
 
   /**
    * {@inheritDoc}
@@ -126,6 +130,8 @@ public class CacheControlFilter implements Filter {
     HttpServletRequest srequest = (HttpServletRequest) request;
     HttpServletResponse sresponse = (HttpServletResponse) response;
     String path = srequest.getPathInfo();
+    String cacheKey = srequest.getQueryString() == null ? path : path + "?" + srequest.getQueryString();
+
     int respCode = 0;
     Map<String, String> headers = null;
     boolean withLastModfied = true;
@@ -164,7 +170,7 @@ public class CacheControlFilter implements Filter {
       if ( cacheAge > 0 ) {
         cachedResponseManager = new CachedResponseManager(srequest, cacheAge, getCache());
         if ( cachedResponseManager.isValid() ) {
-          TelemetryCounter.incrementValue("http", "CacheControlFilter-hit", path);
+          TelemetryCounter.incrementValue("http", "CacheControlFilter-hit", cacheKey);
           cachedResponseManager.send(sresponse);
           return;
         }
@@ -175,13 +181,12 @@ public class CacheControlFilter implements Filter {
       if ( fresponse != null ) {
         chain.doFilter(request, fresponse);
         if ( cachedResponseManager != null ) {
-          TelemetryCounter.incrementValue("http", "CacheControlFilter-save", path);
+          TelemetryCounter.incrementValue("http", "CacheControlFilter-save", cacheKey);
           cachedResponseManager.save(fresponse.getResponseOperation());
         } else {
-          TelemetryCounter.incrementValue("http", "CacheControlFilter-nosave", path);
+          TelemetryCounter.incrementValue("http", "CacheControlFilter-nosave", cacheKey);
         }
       } else {
-        TelemetryCounter.incrementValue("http", "CacheControlFilter-noop", path);
         chain.doFilter(request, response);
       }
     }
@@ -269,8 +274,13 @@ public class CacheControlFilter implements Filter {
 
     int filterPriority = PropertiesUtil.toInteger(properties.get(FILTER_PRIORITY_CONF),0);
 
-    extHttpService.registerFilter(this, ".*", null, filterPriority, null);
+    disableForDevMode = PropertiesUtil.toBoolean(properties.get(DISABLE_CACHE_FOR_UI_DEV), false);
 
+    if ( disableForDevMode ) {
+      extHttpService.unregisterFilter(this);
+    } else {
+      extHttpService.registerFilter(this, ".*", null, filterPriority, null);
+    }
 
   }
 

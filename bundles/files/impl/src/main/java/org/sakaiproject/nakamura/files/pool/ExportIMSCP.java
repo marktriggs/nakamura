@@ -146,7 +146,6 @@ public class ExportIMSCP implements ResourceProvider {
       LOGGER.warn(e.getMessage(), e);
     } catch (StorageClientException e) {
       LOGGER.warn(e.getMessage(), e);
-      e.printStackTrace();
     } catch (AccessDeniedException e) {
       LOGGER.warn(e.getMessage());
       LOGGER.debug(e.getMessage(), e);
@@ -157,7 +156,6 @@ public class ExportIMSCP implements ResourceProvider {
       LOGGER.warn(e.getMessage());
       LOGGER.debug(e.getMessage(), e);
     } catch (Exception e) {
-      e.printStackTrace();
       LOGGER.warn(e.getMessage());
       LOGGER.debug(e.getMessage(), e);
     } finally {

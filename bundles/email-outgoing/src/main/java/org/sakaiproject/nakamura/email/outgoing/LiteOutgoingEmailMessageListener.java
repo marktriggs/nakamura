@@ -243,15 +243,20 @@ public class LiteOutgoingEmailMessageListener implements MessageListener {
                           scheduleRetry(errorCode, messageContent);
                           rescheduled = true;
                         }
+                        else if (!rescheduled && cause.toString().contains("java.net.ConnectException")){
+                          scheduleRetry(messageContent);
+                          rescheduled = true;
+                        }
                       }
                     }
+
                     if (rescheduled) {
                       LOGGER.info("Email {} rescheduled for redelivery. ", nodePath);
                     } else {
                       LOGGER
-                          .error(
-                              "Unable to reschedule email for delivery: "
-                                  + e.getMessage(), e);
+                      .error(
+                          "Unable to reschedule email for delivery: "
+                              + e.getMessage(), e);
                     }
                   }
                 } else {
@@ -313,10 +318,10 @@ public class LiteOutgoingEmailMessageListener implements MessageListener {
     }
   }
 
-  private MultiPartEmail constructMessage(Content contentNode, List<String> recipients,
+  protected MultiPartEmail constructMessage(Content contentNode, List<String> recipients,
       javax.jcr.Session session, org.sakaiproject.nakamura.api.lite.Session sparseSession)
       throws EmailDeliveryException, StorageClientException, AccessDeniedException,
-      PathNotFoundException, RepositoryException {
+      PathNotFoundException, RepositoryException, EmailException {
     MultiPartEmail email = new MultiPartEmail();
 
 
@@ -485,45 +490,50 @@ public class LiteOutgoingEmailMessageListener implements MessageListener {
     return address;
   }
 
-  private void scheduleRetry(int errorCode, Content contentNode) {
+  protected void scheduleRetry(int errorCode, Content contentNode) {
     // All retry-able SMTP errors should have codes starting with 4
     if ((errorCode / 100) == 4) {
-      long retryCount = 0;
-      if (contentNode.hasProperty(MessageConstants.PROP_SAKAI_RETRY_COUNT)) {
-        retryCount = StorageClientUtils.toLong(contentNode
-            .getProperty(MessageConstants.PROP_SAKAI_RETRY_COUNT));
-      }
-
-      if (retryCount < maxRetries) {
-        Job job = new Job() {
-
-          public void execute(JobContext jc) {
-            Map<String, Serializable> config = jc.getConfiguration();
-            Properties eventProps = new Properties();
-            eventProps.put(NODE_PATH_PROPERTY, config.get(NODE_PATH_PROPERTY));
-
-            Event retryEvent = new Event(QUEUE_NAME, (Map<Object, Object>) eventProps);
-            eventAdmin.postEvent(retryEvent);
-
-          }
-        };
-
-        HashMap<String, Serializable> jobConfig = new HashMap<String, Serializable>();
-        jobConfig.put(NODE_PATH_PROPERTY, contentNode.getPath());
-
-        int retryIntervalMillis = retryInterval * 60000;
-        Date nextTry = new Date(System.currentTimeMillis() + (retryIntervalMillis));
-
-        try {
-          scheduler.fireJobAt(null, job, jobConfig, nextTry);
-        } catch (Exception e) {
-          LOGGER.error(e.getMessage(), e);
-        }
-      } else {
-        setError(contentNode, "Unable to send message, exhausted SMTP retries.");
-      }
+      scheduleRetry(contentNode);
     } else {
       LOGGER.warn("Not scheduling a retry for error code not of the form 4xx.");
+    }
+  }
+
+  protected void scheduleRetry(Content contentNode) {
+
+    long retryCount = 0;
+    if (contentNode.hasProperty(MessageConstants.PROP_SAKAI_RETRY_COUNT)) {
+      retryCount = StorageClientUtils.toLong(contentNode
+          .getProperty(MessageConstants.PROP_SAKAI_RETRY_COUNT));
+    }
+
+    if (retryCount < maxRetries) {
+      Job job = new Job() {
+
+        public void execute(JobContext jc) {
+          Map<String, Serializable> config = jc.getConfiguration();
+          Properties eventProps = new Properties();
+          eventProps.put(NODE_PATH_PROPERTY, config.get(NODE_PATH_PROPERTY));
+
+          Event retryEvent = new Event(QUEUE_NAME, (Map<Object, Object>) eventProps);
+          eventAdmin.postEvent(retryEvent);
+
+        }
+      };
+
+      HashMap<String, Serializable> jobConfig = new HashMap<String, Serializable>();
+      jobConfig.put(NODE_PATH_PROPERTY, contentNode.getPath());
+
+      int retryIntervalMillis = retryInterval * 60000;
+      Date nextTry = new Date(System.currentTimeMillis() + (retryIntervalMillis));
+
+      try {
+        scheduler.fireJobAt(null, job, jobConfig, nextTry);
+      } catch (Exception e) {
+        LOGGER.error(e.getMessage(), e);
+      }
+    } else {
+      setError(contentNode, "Unable to send message, exhausted SMTP retries.");
     }
   }
 

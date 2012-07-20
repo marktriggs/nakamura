@@ -29,7 +29,7 @@ ul > li > p:first-child
 { font-weight: bold; font-family:Tahoma,Arial,sans-serif; font-size: 1em; }
 
 pre
-{ background:#000000 none repeat scroll 0 0; color:#FFFFFF; font-size: 1em; font-family:monospace; margin:5px; padding:10px; }
+{ background:#ddd; font-size: 1em; font-family:monospace; margin:5px; padding:10px; overflow: auto; width: 95%; border: 1px dotted; }
 
 code
 { font-family:monospace; font-weight:bold; font-size: 1em; }
@@ -45,4 +45,12 @@ a:visited
 
 .parameter-name { display:block; }
 
-ul.documentation-list li span.path, ul.documentation-list li span.short-description {display:block; font-size:0.8em; margin-left:5px }
+table.documentation-list td { width: 10%; }
+
+table { border-collapse: collapse; margin: 10px; width: 95%; }
+
+tbody td, thead th { margin: 0; padding: 5; border: 1px solid #000; }
+
+h1 a { color: #fff }
+
+ul.topnav li { display: inline; margin: 5px; }

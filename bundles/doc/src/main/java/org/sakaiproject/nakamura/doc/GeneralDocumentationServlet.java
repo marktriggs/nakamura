@@ -30,44 +30,48 @@ import org.sakaiproject.nakamura.api.doc.ServiceBinding;
 import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
-import org.sakaiproject.nakamura.doc.servlet.ServletDocumentation;
+import org.sakaiproject.nakamura.doc.servlet.DocumentationServlet;
 import org.sakaiproject.nakamura.doc.servlet.ServletDocumentationRegistry;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-
+import javax.jcr.ItemNotFoundException;
+import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletResponse;
 
 @ServiceDocumentation(
-  name = "General Documentation Servlet",
-  okForVersion = "1.2",
-  description = "Gets the documentation for servlets, proxies and search templates.",
-  shortDescription = "Gets the documentation for servlets, proxies and search templates.",
-  bindings = {
-    @ServiceBinding(type = BindingType.PATH, bindings = { "system/doc" })
-  },
-  methods = {
-    @ServiceMethod(
-      name = "GET",
-      description = "Get the documentation.",
-      response = {
-        @ServiceResponse(code = 200, description = "All processing finished successfully."),
-        @ServiceResponse(code = 500, description = "Exception occurred during processing.")
-      }
-    )
-  }
+    name = "General Documentation Servlet",
+    okForVersion = "1.2",
+    description = "Gets the documentation for servlets, proxies and search templates.",
+    shortDescription = "Gets the documentation for servlets, proxies and search templates.",
+    bindings = {
+        @ServiceBinding(type = BindingType.PATH, bindings = {"system/doc"})
+    },
+    methods = {
+        @ServiceMethod(
+            name = "GET",
+            description = "Get the documentation.",
+            response = {
+                @ServiceResponse(code = 200, description = "All processing finished successfully."),
+                @ServiceResponse(code = 500, description = "Exception occurred during processing.")
+            }
+        )
+    }
 )
-@SlingServlet(methods = { "GET" }, paths = { "/system/doc" })
+@SlingServlet(methods = {"GET"}, paths = {"/system/doc"})
 public class GeneralDocumentationServlet extends SlingSafeMethodsServlet {
 
   private static final long serialVersionUID = 6866189047081436865L;
+
   @Reference
   protected transient ServletDocumentationRegistry servletDocumentationRegistry;
+
+  @Reference
+  DocumentationServlet documentationServlet;
+
   private byte[] style;
 
   @Override
@@ -77,7 +81,7 @@ public class GeneralDocumentationServlet extends SlingSafeMethodsServlet {
     RequestParameter p = request.getRequestParameter("p");
     if (p == null) {
       // Send out the categories.
-      sendIndex(response);
+      sendIndex(request, response);
     } else if ("style".equals(p.getString())) {
       // Send out the CSS file
       if (style == null) {
@@ -92,30 +96,44 @@ public class GeneralDocumentationServlet extends SlingSafeMethodsServlet {
 
   }
 
-  private void sendIndex(SlingHttpServletResponse response) throws IOException {
+  private void sendIndex(SlingHttpServletRequest request, SlingHttpServletResponse response) throws IOException {
     PrintWriter writer = response.getWriter();
-    writer.append(DocumentationConstants.HTML_HEADER);
-    writer.append("<h1>List of Services</h1>");
-    writer.append("<ul>");
-    Map<String, ServletDocumentation> m = servletDocumentationRegistry.getServletDocumentation();
-    List<ServletDocumentation> o = new ArrayList<ServletDocumentation>(m.values());
-    Collections.sort(o);
-    for (ServletDocumentation k : o) {
-      if (k.isDocumentationServlet()) {
-        String key = k.getKey();
-        if (key != null) {
-          writer.append("<li><a href=\"");
-          writer.append(k.getUrl());
-          writer.append("\">");
-          writer.append(k.getServiceDocumentationName());
-          writer.append("</a><p>");
-          writer.append(k.getShortDescription());
-          writer.append("</p></li>");
-        }
-      }
+    Session session = request.getResourceResolver().adaptTo(Session.class);
+    response.setContentType("text/html");
+    response.setCharacterEncoding("UTF-8");
+
+    try {
+      writer.append(DocumentationConstants.HTML_HEADER);
+
+      writer.append("<ul class=\"topnav\">");
+      writer.append("<li>Jump to: </li>");
+      writer.append("<li><a href=\"#servlets\">Servlets</a></li>");
+      writer.append("<li><a href=\"#Search nodes\">Search nodes</a></li>");
+      writer.append("<li><a href=\"#Proxy nodes\">Proxy nodes</a></li>");
+      writer.append("</ul>");
+
+      // servlet docs
+      documentationServlet.writeIndex(writer);
+
+      // search node docs
+      DocumentationWriter searchDocWriter = new DocumentationWriter("Search nodes", response
+          .getWriter());
+      String searchQuery = "//*[@sling:resourceType='sakai/solr-search' or @sling:resourceType='sakai/sparse-search'] order by @sakai:title";
+      searchDocWriter.writeNodes(session, searchQuery, DocumentationConstants.PREFIX + "/search");
+
+      // proxy node docs
+      DocumentationWriter proxyDocWriter = new DocumentationWriter("Proxy nodes", response
+          .getWriter());
+      String proxyQuery = "//*[@sling:resourceType='sakai/proxy'] order by sakai:title";
+      proxyDocWriter.writeNodes(session, proxyQuery, DocumentationConstants.PREFIX + "/proxy");
+
+      writer.append(DocumentationConstants.HTML_FOOTER);
+
+    } catch (ItemNotFoundException e) {
+      response.sendError(HttpServletResponse.SC_NOT_FOUND);
+    } catch (RepositoryException e) {
+      response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
     }
-    writer.append("</ul>");
-    writer.append(DocumentationConstants.HTML_FOOTER);
   }
 
 

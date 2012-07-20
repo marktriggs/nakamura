@@ -26,6 +26,8 @@ import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+
+import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
@@ -69,9 +71,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import javax.jcr.RepositoryException;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
@@ -390,7 +395,47 @@ import javax.servlet.http.HttpServletResponse;
       List<String> addManagers = Arrays.asList(StorageClientUtils.nonNullStringArray(request.getParameterValues(":manager")));
       List<String> addEditors = Arrays.asList(StorageClientUtils.nonNullStringArray(request.getParameterValues(":editor")));
 
-      if (!accessControlManager.can(thisUser, Security.ZONE_CONTENT, pooledContent.getPath(), Permissions.CAN_WRITE)) {
+      // get rid of blank values and trim non-blank values
+      removeViewers = sanitizeUsernames(removeViewers);
+      removeManagers = sanitizeUsernames(removeManagers);
+      removeEditors = sanitizeUsernames(removeEditors);
+      addViewers = sanitizeUsernames(addViewers);
+      addManagers = sanitizeUsernames(addManagers);
+      addEditors = sanitizeUsernames(addEditors);
+
+      /*
+       * limit the add and remove lists to only those operations that should be performed:
+       * 
+       * 1. If you have both an add and a remove operation, the remove takes precedence
+       * 2. If you add a user to a role to which they are already in, no operation is performed
+       * 3. If you remove a user from a role to which they don't belong, no operation is performed
+       */
+      
+      // 1.
+      addManagers.removeAll(removeManagers);
+      addEditors.removeAll(removeEditors);
+      addViewers.removeAll(removeViewers);
+      
+      // 2.
+      addManagers.removeAll(managerSet);
+      addEditors.removeAll(editorSet);
+      addViewers.removeAll(viewerSet);
+      
+      // 3.
+      removeManagers.retainAll(managerSet);
+      removeEditors.retainAll(editorSet);
+      removeViewers.retainAll(viewerSet);
+      
+      // don't continue any further if there are no relevant operations to perform
+      if (addManagers.isEmpty() && removeManagers.isEmpty() && addEditors.isEmpty() &&
+          removeEditors.isEmpty() && addViewers.isEmpty() && removeViewers.isEmpty()) {
+        response.setStatus(SC_OK);
+        return;
+      }
+      
+      //Checking for non-managers
+      if (!accessControlManager.can(thisUser, Security.ZONE_CONTENT, pooledContent.getPath(), Permissions.CAN_WRITE) 
+          || !accessControlManager.can(thisUser, Security.ZONE_CONTENT, pooledContent.getPath(), Permissions.CAN_WRITE_ACL)) {
         if (!addManagers.isEmpty()) {
           response.sendError(SC_FORBIDDEN, "Non-managers may not add managers to content.");
           return;
@@ -430,55 +475,43 @@ import javax.servlet.http.HttpServletResponse;
       }
       List<AclModification> aclModifications = Lists.newArrayList();
 
-      for (String addManager : addManagers) {
-        if ((addManager.length() > 0) && !managerSet.contains(addManager)) {
-          managerSet.add(addManager);
-          AclModification.addAcl(true, Permissions.CAN_MANAGE, addManager,
-              aclModifications);
-        }
-      }
-
+      // apply the removals before the adds, because the permission grants should take
+      // precedence
       for (String removeManager : removeManagers) {
-        if ((removeManager.length() > 0) && managerSet.contains(removeManager)) {
-          managerSet.remove(removeManager);
-          AclModification.removeAcl(true, Permissions.CAN_MANAGE, removeManager,
-              aclModifications);
-        }
-      }
-
-      for (String addEditor : addEditors) {
-        if ((addEditor.length() > 0) && !editorSet.contains(addEditor)) {
-          editorSet.add(addEditor);
-          AclModification.addAcl(true, PERMISSION_EDITOR, addEditor,
-              aclModifications);
-        }
+        AclModification.removeAcl(true, Permissions.CAN_MANAGE, removeManager,
+            aclModifications);
       }
 
       for (String removeEditor : removeEditors) {
-        if ((removeEditor.length() > 0) && editorSet.contains(removeEditor)) {
-          editorSet.remove(removeEditor);
-          AclModification.removeAcl(true, PERMISSION_EDITOR, removeEditor,
-              aclModifications);
-        }
-      }
-
-      for (String addViewer : addViewers) {
-        if ((addViewer.length() > 0) && !viewerSet.contains(addViewer)) {
-          viewerSet.add(addViewer);
-          AclModification.addAcl(true, Permissions.CAN_READ, addViewer, aclModifications);
-        }
+        AclModification
+            .removeAcl(true, PERMISSION_EDITOR, removeEditor, aclModifications);
       }
 
       for (String removeViewer : removeViewers) {
-        removeViewer = removeViewer.trim();
-        if ((removeViewer.length() > 0) && viewerSet.contains(removeViewer)) {
-          viewerSet.remove(removeViewer);
-          if (!managerSet.contains(removeViewer)) {
-            AclModification.removeAcl(true, Permissions.CAN_READ, removeViewer,
-                aclModifications);
-          }
-        }
+        AclModification.removeAcl(true, Permissions.CAN_READ, removeViewer,
+            aclModifications);
       }
+
+      for (String addManager : addManagers) {
+        AclModification
+            .addAcl(true, Permissions.CAN_MANAGE, addManager, aclModifications);
+      }
+
+      for (String addEditor : addEditors) {
+        AclModification.addAcl(true, PERMISSION_EDITOR, addEditor, aclModifications);
+      }
+
+      for (String addViewer : addViewers) {
+        AclModification.addAcl(true, Permissions.CAN_READ, addViewer, aclModifications);
+      }
+
+      // apply the operations to the final set of content roles
+      managerSet.removeAll(removeManagers);
+      managerSet.addAll(addManagers);
+      editorSet.removeAll(removeEditors);
+      editorSet.addAll(addEditors);
+      viewerSet.removeAll(removeViewers);
+      viewerSet.addAll(addViewers);
 
       updateContentMembers(session, pooledContent, viewerSet,  managerSet, editorSet);
       updateContentAccess(session, pooledContent, aclModifications);
@@ -504,6 +537,25 @@ import javax.servlet.http.HttpServletResponse;
     }
   }
 
+  /**
+   * Given a list of raw Strings, clean them to only include valid usernames. The returned
+   * array should be a list of trimmed, non-null, non-empty strings that should be limited
+   * to only those that were considered valid syntactic usernames.
+   * 
+   * @param usernames
+   * @return A list of syntactically correct usernames.
+   */
+  private List<String> sanitizeUsernames(Iterable<String> usernames) {
+    List<String> result = new LinkedList<String>();
+    for (Iterator<String> i = usernames.iterator(); i.hasNext();) {
+      String username = i.next();
+      if (StringUtils.isNotBlank(username)) {
+        result.add(username.trim());
+      }
+    }
+    return result;
+  }
+  
   private void updateContentMembers(Session session, Content content, Set<String> viewerSet, Set<String> managerSet, Set<String> editorSet)
           throws StorageClientException, AccessDeniedException {
     content.setProperty(POOLED_CONTENT_USER_VIEWER,

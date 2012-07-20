@@ -418,8 +418,9 @@ public class ProxyClientServiceImpl implements ProxyClientService, ProxyNodeSour
                   if (val.isFormField()) {
                     part = new StringPart(param.getKey(), val.getString());
                   } else {
-                    ByteArrayPartSource source = new ByteArrayPartSource(key, val.get());
-                    part = new FilePart(key, source);
+                    ByteArrayPartSource source = new ByteArrayPartSource(
+                        val.getFileName(), val.get());
+                    part = new FilePart(key, source, val.getContentType(), null);
                   }
                   parts.add(part);
                 }

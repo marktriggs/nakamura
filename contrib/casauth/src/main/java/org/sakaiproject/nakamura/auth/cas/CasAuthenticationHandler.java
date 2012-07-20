@@ -498,9 +498,9 @@ public class CasAuthenticationHandler implements AuthenticationHandler {
         ticket = getProxyTicketFromXml(get.getResponseBodyAsString());
       }
     } catch (HttpException e) {
-      e.printStackTrace();
+      LOGGER.warn(e.getMessage());
     } catch (IOException e) {
-      e.printStackTrace();
+      LOGGER.warn(e.getMessage());
     }
     return ticket;
   }

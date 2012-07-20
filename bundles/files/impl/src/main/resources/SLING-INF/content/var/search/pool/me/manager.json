@@ -16,6 +16,7 @@
   },
   "sling:resourceType": "sakai/solr-search",
   "sakai:propertyprovider" : ["PooledContentSparse", "MimeMatch"],
+  "sakai:batchresultprocessor": "PooledContentFiles",
   "sakai:title": "Pooled Content - Me - Manager",
   "sakai:shortDescription": "Searches trough all the files where the current user is a manager.",
   "sakai:parameters" : [

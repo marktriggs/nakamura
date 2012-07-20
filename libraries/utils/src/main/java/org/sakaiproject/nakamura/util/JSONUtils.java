@@ -23,8 +23,10 @@ import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 public class JSONUtils {
 
@@ -65,4 +67,70 @@ public class JSONUtils {
     }
   }
 
+  /**
+   * Given a JSONArray, extract its array elements into a Java array. All elements of the
+   * array will be recursively converted to Java objects if they are JSON objects as well.
+   * 
+   * @param array
+   * @return
+   * @throws JSONException
+   */
+  public static Object[] toArray(JSONArray array) throws JSONException {
+    if (array == null)
+      return null;
+
+    int length = array.length();
+    if (length == 0)
+      return new Object[0];
+    
+    Object[] result = new Object[length];
+    for (int i = 0; i < length; i++) {
+      result[i] = toJavaObject(array.get(i));
+    }
+    
+    return result;
+  }
+  
+  /**
+   * Given a JSONObject, convert it into a java Map. All elements of the array will be
+   * recursively converted to Java objects if they are JSON objects as well.
+   * 
+   * @param json
+   * @return
+   * @throws JSONException
+   */
+  public static Map<String, Object> toMap(JSONObject json) throws JSONException {
+    if (json == null)
+      return null;
+    
+    Map<String, Object> result = new HashMap<String, Object>();
+    Iterator<String> i = json.keys();
+    while (i.hasNext()) {
+      String key = i.next();
+      result.put(key, toJavaObject(json.get(key)));
+    }
+    return result;
+  }
+  
+  /**
+   * Given an arbitrary object, if it is JSON, convert it to its associated Java representation.
+   * <p>
+   * For a JSONObject, it will be converted to a Map<String, Object>. For a JSONArray, it will be
+   * converted into an Object[]
+   * </p>
+   * @param maybeJson
+   * @return
+   * @throws JSONException
+   */
+  private static Object toJavaObject(Object maybeJson) throws JSONException {
+    if (maybeJson == null || maybeJson.equals(null))
+      return null;
+    if (maybeJson instanceof JSONObject) {
+      return toMap((JSONObject) maybeJson);
+    } else if (maybeJson instanceof JSONArray) {
+      return toArray((JSONArray) maybeJson);
+    } else {
+      return maybeJson;
+    }
+  }
 }

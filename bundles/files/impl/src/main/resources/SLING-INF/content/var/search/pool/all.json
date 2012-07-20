@@ -1,5 +1,5 @@
 {
-  "sakai:query-template": "(content:(${q}) OR filename:(${q}) OR tag:(${q}) OR description:(${q} OR mimeType: ${q}) OR ngram:(${q}) OR edgengram:(${q}) OR tag:(${q}) OR widgetdata:(${q})) ${_mimetype} ${_tags}",
+  "sakai:query-template": "(content:(${q}) OR filename:(${q}) OR tag:(${q}) OR description:(${q}) OR ngram:(${q}) OR edgengram:(${q}) OR widgetdata:(${q})) ${_mimetype} ${_tags}",
   "sakai:query-template-options": {
       "fq": "resourceType:(sakai/pooled-content OR sakai/widget-data)",
       "group": true,
@@ -14,6 +14,7 @@
     "sortOrder": "desc"
   },
   "sakai:propertyprovider" : ["MimeMatch","TagRefined"],
+  "sakai:batchresultprocessor": "PooledContentFiles",
   "sling:resourceType": "sakai/solr-search",
   "sakai:title": "Pooled Content - All",
   "sakai:shortDescription": "Search trough all the pooled files.",

@@ -1,1 +1,1 @@
-set K2VERSION=1.2.0
+set K2VERSION=1.3.0

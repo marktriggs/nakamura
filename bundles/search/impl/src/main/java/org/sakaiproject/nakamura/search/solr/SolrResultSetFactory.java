@@ -159,9 +159,9 @@ public class SolrResultSetFactory implements ResultSetFactory {
           Authorizable user = am.findAuthorizable(session.getUserId());
           Set<String> readers = Sets.newHashSet();
           for (Iterator<Group> gi = user.memberOf(am); gi.hasNext();) {
-            readers.add(SearchUtil.escapeString(gi.next().getId(), Query.SOLR));
+            readers.add(gi.next().getId());
           }
-          readers.add(SearchUtil.escapeString(session.getUserId(), Query.SOLR));
+          readers.add(session.getUserId());
           filterQueries.add("readers:(" + StringUtils.join(readers," OR ") + ")");
         }
       }

@@ -34,7 +34,7 @@ class TC_Kern2122 < Test::Unit::TestCase
 
     @s.switch_user(viewer1)
 
-    managed_group = @full_group_creator.create_full_group viewer1.name, "group-#{m}", "kern-2122 int test group", "kern-2122 int test group description"
+    managed_group = @full_group_creator.create_full_group viewer1, "group-#{m}", "kern-2122 int test group", "kern-2122 int test group description"
     assert_not_nil(managed_group, "expected managed group to be created")
 
     file_name = "random-#{uniqueness()}.txt"

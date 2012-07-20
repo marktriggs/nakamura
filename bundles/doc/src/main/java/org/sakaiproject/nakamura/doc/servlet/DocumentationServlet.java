@@ -17,7 +17,9 @@
  */
 package org.sakaiproject.nakamura.doc.servlet;
 
+import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
+import org.apache.felix.scr.annotations.Service;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
@@ -34,7 +36,6 @@ import org.sakaiproject.nakamura.api.doc.ServiceResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +46,8 @@ import javax.servlet.http.HttpServletResponse;
 /**
  * Creates documentation by tracking servlets and inspecting some annotations.
  */
-@SlingServlet(methods = "GET", paths = "/system/doc/servlet")
+@Service(value = DocumentationServlet.class)
+@SlingServlet(generateComponent = true, methods = "GET", paths = "/system/doc/servlet")
 @ServiceDocumentation(name = "Servlet documentation",
     okForVersion = "1.2",
     description = "Provides auto documentation of servlets registered with OSGi. Documentation will use the "
@@ -89,19 +91,15 @@ public class DocumentationServlet extends SlingSafeMethodsServlet {
   protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
       throws ServletException, IOException {
     RequestParameter p = request.getRequestParameter("p");
-    if (p == null) {
-      sendIndex(response);
-    } else {
-
+    if (p != null) {
       ServletDocumentation doc =
         servletDocumentationRegistry.getServletDocumentation().get(p.getString());
       if (doc == null) {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
         return;
       }
-      send(request, response, doc);
+      send(response, doc);
     }
-    return;
   }
 
 
@@ -109,35 +107,42 @@ public class DocumentationServlet extends SlingSafeMethodsServlet {
    * @param response
    * @throws IOException
    */
-  private void sendIndex(SlingHttpServletResponse response) throws IOException {
-    PrintWriter writer = response.getWriter();
-    writer.append(DocumentationConstants.HTML_HEADER);
-    writer.append("<h1>List of Services</h1>");
-    writer.append("<ul>");
+  public void writeIndex(PrintWriter writer) throws IOException {
+    writer.append("<h1><a name=\"servlets\">Servlets</a></h1>");
+    writer.append("<table>");
+    writer.append("<thead>");
+    writer.append("<th>Name/Description</th>");
+    writer.append("<th>Bundle</th>");
+    writer.append("<th>Binding</th>");
+    writer.append("<th>Pattern</th>");
+    writer.append("<th>Selectors</th>");
+    writer.append("<th>Extensions</th>");
+    writer.append("</thead>");
+    writer.append("<tbody>");
     Map<String, ServletDocumentation> m = servletDocumentationRegistry.getServletDocumentation();
-    List<ServletDocumentation> o = new ArrayList<ServletDocumentation>(m.values());
-    Collections.sort(o);
-    for (ServletDocumentation k : o) {
-      String key = k.getKey();
+    List<ServletDocumentation> docs = new ArrayList<ServletDocumentation>(m.values());
+    Collections.sort(docs);
+    for (ServletDocumentation doc : docs) {
+      String key = doc.getKey();
       if ( key != null ) {
-        writer.append("<li><a href=\"");
+        writer.append("<tr>");
+        writer.append("<td><a href=\"");
         writer.append(DocumentationConstants.PREFIX + "/servlet");
         writer.append("?p=");
-        writer.append(k.getKey());
+        writer.append(doc.getKey());
         writer.append("\">");
-        writer.append(k.getName());
+        writer.append(doc.getName());
         writer.append("</a><p>");
-        writer.append(k.getShortDescription());
-        writer.append("</p><p>");
-        writer.append(Arrays.toString(k.getVersions()));
-        if ( !k.isVersionOk() ) {
-          writer.append("Caution: Documentation has not be reviewed for this release");
-        }
-        writer.append("</p></li>");
+        writer.append(doc.getShortDescription());
+        writer.append("</p></td><td>");
+        writer.append(doc.getBundleName());
+        writer.append("</td>");
+        doc.writeBindingsSummary(writer);
+        writer.append("</tr>");
       }
     }
-    writer.append("</ul>");
-    writer.append(DocumentationConstants.HTML_FOOTER);
+    writer.append("</tbody>");
+    writer.append("</table>");
   }
 
   /**
@@ -146,14 +151,19 @@ public class DocumentationServlet extends SlingSafeMethodsServlet {
    * @param doc
    * @throws IOException
    */
-  private void send(SlingHttpServletRequest request, SlingHttpServletResponse response,
+  private void send(SlingHttpServletResponse response,
       ServletDocumentation doc) throws IOException {
+    response.setContentType("text/html");
+    response.setCharacterEncoding("UTF-8");
     PrintWriter writer = response.getWriter();
     writer.append(DocumentationConstants.HTML_HEADER);
-    writer.append("<h1>Service: ");
+    writer.append("<h1>");
     writer.append(doc.getName());
     writer.append("</h1>");
-    doc.send(request, response);
+    writer.append("<h3>Bundle</h3><p>");
+    writer.append(doc.getBundleName());
+    writer.append("</p>");
+    doc.send(response);
     writer.append(DocumentationConstants.HTML_FOOTER);
   }
 

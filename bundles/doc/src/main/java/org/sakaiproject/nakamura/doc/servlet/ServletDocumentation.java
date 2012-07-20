@@ -17,7 +17,6 @@
  */
 package org.sakaiproject.nakamura.doc.servlet;
 
-import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.servlets.post.SlingPostOperation;
 import org.osgi.framework.Bundle;
@@ -36,7 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-
 import javax.servlet.Servlet;
 
 /**
@@ -47,8 +45,9 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
   private static final String PACKAGE = DocumentationProxyPackage.class.getPackage().getName()+".Doc_";
   private static final Logger LOGGER = LoggerFactory
       .getLogger(ServletDocumentation.class);
-  private ServiceDocumentation serviceDocumetation;
+  private ServiceDocumentation serviceDocumentation;
   private String serviceName;
+  private String bundleName;
   private Object service;
   private ServiceReference reference;
 
@@ -59,88 +58,67 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
   public ServletDocumentation(ServiceReference reference, Object service) {
     this.service = service;
     this.reference = reference;
-    serviceDocumetation = (ServiceDocumentation) service.getClass()
+    serviceDocumentation = service.getClass()
         .getAnnotation(ServiceDocumentation.class);
-    if (serviceDocumetation == null) {
+    if (serviceDocumentation == null) {
       // try and load an info class.
       String name = service.getClass().getName();
       name = PACKAGE + name.replace('.', '_');
       try {
         Class<?> c = this.getClass().getClassLoader().loadClass(name);
-        serviceDocumetation = (ServiceDocumentation) c
+        serviceDocumentation = c
             .getAnnotation(ServiceDocumentation.class);
       } catch (ClassNotFoundException ex) {
         LOGGER.debug("No documentation proxy {} ", name);
         // no doc class present.
       }
     }
-    serviceName = getServiceName(reference, service, serviceDocumetation);
+    serviceName = service.getClass().getName();
+    int i = serviceName.lastIndexOf('.');
+    serviceName = i > 0 ? serviceName.substring(i + 1) : serviceName;
 
-  }
-
-  private static String getBundleName(ServiceReference reference) {
     Bundle bundle = reference.getBundle();
-    String bundleName = (String) bundle.getHeaders().get(Constants.BUNDLE_NAME);
+    bundleName = (String) bundle.getHeaders().get(Constants.BUNDLE_NAME);
     if (bundleName == null) {
       bundleName = bundle.getSymbolicName();
       if (bundleName == null) {
         bundleName = bundle.getLocation();
       }
     }
-    return bundleName;
   }
 
-  /**
-   * Generate a service name for the supplied service and reference.
-   * 
-   * @param reference
-   *          OSGi reference for the service.
-   * @param service
-   *          the Servlet.
-   * @param serviceDocumetation
-   *          the documentation annotation, if present, null if not.
-   * @return the service name.
-   */
-  private static String getServiceName(ServiceReference reference,
-      Object service, ServiceDocumentation serviceDocumetation) {
-    String name = service.getClass().getName();
-    int i = name.lastIndexOf('.');
-    name = i > 0 ? name.substring(i + 1) : name;
-    String bundleName = getBundleName(reference);
-    if (serviceDocumetation == null) {
-      return bundleName + ":" + name + ":"
-          + String.valueOf(reference.getProperty(Constants.SERVICE_ID));
-    } else {
-      return bundleName + ":" + name + ":" + serviceDocumetation.name();
-    }
+  public String getBundleName() {
+    return bundleName;
   }
 
   /**
    * Documentation of the service.
    * 
-   * @param request
-   *          the current request.
+   *
    * @param response
    *          the current response.
    * @throws IOException
    *           of there were issues writing to the response.
    */
-  public void send(SlingHttpServletRequest request,
-      SlingHttpServletResponse response) throws IOException {
+  public void send(SlingHttpServletResponse response) throws IOException {
     PrintWriter writer = response.getWriter();
 
-    if (serviceDocumetation == null) {
+    if (serviceDocumentation == null) {
       writer
-          .append("<p>No Service documentation has been provided by the developer, tut tut!</p>");
+          .append("<p>Sorry, no service documentation has been provided by the developer.</p>");
     } else {
       writer.append("<h3>Description</h3><p>");
-      sendDoc(writer, serviceDocumetation.description());
+      sendDoc(writer, serviceDocumentation.description());
+      if (serviceDocumentation.description().length == 0) {
+        // fall back on short description if developer hasn't provided a long one
+        sendDoc(writer, new String[]{serviceDocumentation.shortDescription()});
+      }
       writer.append("</p><h3>Versions</h3><ul>");
-      if ( serviceDocumetation.okForVersion() == null || serviceDocumetation.okForVersion().length == 0 ) {
+      if ( serviceDocumentation.okForVersion() == null || serviceDocumentation.okForVersion().length == 0 ) {
         writer.append("<li>Caution: This Documentation has not been reviewed for this release</li>");
       } else {
         boolean versionOk = false;
-        for ( String v : serviceDocumetation.okForVersion()) {
+        for ( String v : serviceDocumentation.okForVersion()) {
           writer.append("<li>").append(v).append("</li>");
           if ( ServiceDocumentation.VERSION.equals(v)) {
             versionOk = true;
@@ -152,8 +130,8 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
       }
       writer.append("</ul><h3>Bindings</h3><ul>");
 
-      for (ServiceBinding sb : serviceDocumetation.bindings()) {
-        writer.append("<li><p>Type:");
+      for (ServiceBinding sb : serviceDocumentation.bindings()) {
+        writer.append("<li><p>Binding Type: ");
         writer.append(sb.type().toString());
         sendList(writer, sb.bindings());
         writer.append("</p><p>Selectors:");
@@ -188,7 +166,7 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
 
       }
       writer.append("</ul><h3>Methods</h3><ul>");
-      for (ServiceMethod sm : serviceDocumetation.methods()) {
+      for (ServiceMethod sm : serviceDocumentation.methods()) {
         writer.append("<li><h4>Method:");
         writer.append(sm.name());
         writer.append("</h4>");
@@ -305,10 +283,10 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
    * @return Returns the name of this servlet as specified in the serviceDocumentation
    */
   public String getServiceDocumentationName() {
-    if (serviceDocumetation == null) {
+    if (serviceDocumentation == null) {
       return "No name available";
     } else {
-      return serviceDocumetation.name();
+      return serviceDocumentation.name();
     }
   }
 
@@ -316,10 +294,10 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
    * @return a short description of the Servlet.
    */
   public String getShortDescription() {
-    if (serviceDocumetation == null) {
-      return "<p>No documentation available</p>";
+    if (serviceDocumentation == null) {
+      return "No documentation available";
     } else {
-      return serviceDocumetation.shortDescription();
+      return serviceDocumentation.shortDescription();
     }
   }
 
@@ -327,31 +305,23 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
    * @return The url of the documentation-servlet (if any)
    */
   public String getUrl() {
-    if (serviceDocumetation == null) {
+    if (serviceDocumentation == null) {
       return "";
     } else {
-      return serviceDocumetation.url();
+      return serviceDocumentation.url();
     }
   }
 
   public boolean isDocumentationServlet() {
-    if (serviceDocumetation == null) {
+    if (serviceDocumentation == null) {
       return false;
     } else {
-      if (!serviceDocumetation.url().equals("")) {
+      if (!serviceDocumentation.url().equals("")) {
         return true;
       }
     }
     return false;
   }
-  public String[] getVersions() {
-    if (serviceDocumetation == null) {
-      return new String[]{};
-    } else {
-      return serviceDocumetation.okForVersion();
-    }
-  }
-
 
   /**
    * {@inheritDoc}
@@ -390,20 +360,53 @@ public class ServletDocumentation implements Comparable<ServletDocumentation> {
    *         documentation objects.
    */
   public String getKey() {
-    if (serviceDocumetation != null && serviceDocumetation.ignore()) {
+    if (serviceDocumentation != null && serviceDocumentation.ignore()) {
       return null;
     }
     return String.valueOf(service.getClass().getName());
   }
 
-  public boolean isVersionOk() {
-    for ( String version : getVersions()) {
-      if ( ServiceDocumentation.VERSION.equals(version)) {
-        return true;
-      }
+  public void writeBindingsSummary(PrintWriter writer) {
+    if (serviceDocumentation == null || serviceDocumentation.ignore()) {
+      return;
     }
-    return false;
-  }
+    for (ServiceBinding sb : serviceDocumentation.bindings()) {
+      writer.append("<td>");
+      writer.append(sb.type().toString());
+      writer.append("</td><td>");
+      for (int i = 0; i < sb.bindings().length; i++) {
+        writer.append(sb.bindings()[i]);
+        if (i < sb.bindings().length - 1) {
+          writer.append(", ");
+        }
+      }
+      if ( sb.bindings().length == 0 ) {
+        writer.append("&nbsp;");
+      }
+      writer.append("</td><td>");
+      for (int i = 0; i < sb.selectors().length; i++) {
+        writer.append(sb.selectors()[i].name());
+        if (i < sb.selectors().length - 1) {
+          writer.append(", ");
+        }
+      }
+      if ( sb.selectors().length == 0 ) {
+        writer.append("&nbsp;");
+      }
 
+      writer.append("</td><td>");
+      for (int i = 0; i < sb.extensions().length; i++) {
+        writer.append(sb.extensions()[i].name());
+        if (i < sb.extensions().length - 1) {
+          writer.append(", ");
+        }
+      }
+      if ( sb.extensions().length == 0 ) {
+        writer.append("&nbsp;");
+      }
+
+      writer.append("</td>");
+    }
+  }
 
 }

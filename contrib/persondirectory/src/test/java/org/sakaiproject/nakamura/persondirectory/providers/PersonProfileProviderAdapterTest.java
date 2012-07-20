@@ -44,6 +44,9 @@ public class PersonProfileProviderAdapterTest {
 
   @Mock(answer = Answers.RETURNS_DEEP_STUBS)
   PersonProvider personProvider;
+  
+  @Mock(answer = Answers.RETURNS_DEEP_STUBS)
+  Content content = new Content(null, null);
 
   @SuppressWarnings("unchecked")
   @Test
@@ -57,12 +60,13 @@ public class PersonProfileProviderAdapterTest {
     Map<String, Object> profileSection = new HashMap<String, Object>();
     profileSection.put("foo", "bar");
 
-    Content content = new Content(null, null);
+    String contentPath = "/fake/path";
     when(ps1.getNode()).thenReturn(content);
+    when(content.getPath()).thenReturn(contentPath);
     when(personProvider.getProfileSection(content)).thenReturn(profileSection);
 
-    Map<Content, Future<Map<String, Object>>> result = (Map<Content, Future<Map<String, Object>>>) pppa.getProvidedMap(list);
-    Future<Map<String, Object>> fut = result.get(content);
+    Map<String, Future<Map<String, Object>>> result = (Map<String, Future<Map<String, Object>>>) pppa.getProvidedMap(list);
+    Future<Map<String, Object>> fut = result.get(contentPath);
     assertEquals(profileSection, fut.get());
   }
 
@@ -74,15 +78,16 @@ public class PersonProfileProviderAdapterTest {
     ArrayList<ProviderSettings> list = new ArrayList<ProviderSettings>();
     list.add(ps1);
 
-    Content content = new Content(null, null);
+    String contentPath = "/fake/path";
     when(ps1.getNode()).thenReturn(content);
+    when(content.getPath()).thenReturn(contentPath);
     String errorMessage = "Mocked error is a mock";
     when(this.personProvider.getProfileSection(org.mockito.Mockito.any(Content.class)))
         .thenThrow(new PersonProviderException(errorMessage));
 
     @SuppressWarnings("unchecked")
-    Map<Content, Future<Map<String,Object>>> result = (Map<Content, Future<Map<String,Object>>>) pppa.getProvidedMap(list);
-    Future<Map<String, Object>> fut = result.get(content);
+    Map<String, Future<Map<String,Object>>> result = (Map<String, Future<Map<String,Object>>>) pppa.getProvidedMap(list);
+    Future<Map<String, Object>> fut = result.get(contentPath);
     assertEquals(errorMessage, fut.get().get("error"));
   }
 }

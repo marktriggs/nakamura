@@ -17,15 +17,17 @@
  */
 package org.sakaiproject.nakamura.doc;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Matchers;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.Constants;
@@ -33,7 +35,7 @@ import org.osgi.framework.Filter;
 import org.osgi.framework.InvalidSyntaxException;
 import org.osgi.framework.ServiceReference;
 import org.osgi.service.component.ComponentContext;
-import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
+import org.sakaiproject.nakamura.doc.servlet.DocumentationServlet;
 import org.sakaiproject.nakamura.doc.servlet.ServletDocumentation;
 import org.sakaiproject.nakamura.doc.servlet.ServletDocumentationRegistry;
 
@@ -44,7 +46,13 @@ import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
-
+import javax.jcr.NodeIterator;
+import javax.jcr.RepositoryException;
+import javax.jcr.Session;
+import javax.jcr.Workspace;
+import javax.jcr.query.Query;
+import javax.jcr.query.QueryManager;
+import javax.jcr.query.QueryResult;
 import javax.servlet.Servlet;
 import javax.servlet.ServletException;
 
@@ -60,6 +68,7 @@ public class GeneralDocumentationServletTest {
   @Before
   public void setUp() throws InvalidSyntaxException {
     servlet = new GeneralDocumentationServlet();
+    servlet.documentationServlet = mock(DocumentationServlet.class);
 
     bundleContext = mock(BundleContext.class);
     expectServiceTrackerCalls(bundleContext, Servlet.class.getName());
@@ -73,9 +82,24 @@ public class GeneralDocumentationServletTest {
   }
 
   @Test
-  public void testGet() throws IOException, ServletException {
+  public void testGet() throws IOException, ServletException, RepositoryException {
     SlingHttpServletRequest request = mock(SlingHttpServletRequest.class);
     SlingHttpServletResponse response = mock(SlingHttpServletResponse.class);
+    ResourceResolver resolver = mock(ResourceResolver.class);
+    when(request.getResourceResolver()).thenReturn(resolver);
+    Session session = mock(Session.class);
+    when(resolver.adaptTo(Session.class)).thenReturn(session);
+
+    Workspace workspace = mock(Workspace.class);
+    when(session.getWorkspace()).thenReturn(workspace);
+    QueryManager queryManager = mock(QueryManager.class);
+    when(workspace.getQueryManager()).thenReturn(queryManager);
+    Query query = mock(Query.class);
+    when(queryManager.createQuery(Matchers.anyString(), Matchers.anyString())).thenReturn(query);
+    QueryResult queryResult = mock(QueryResult.class);
+    when(query.execute()).thenReturn(queryResult);
+    NodeIterator iterator = mock(NodeIterator.class);
+    when(queryResult.getNodes()).thenReturn(iterator);
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     PrintWriter writer = new PrintWriter(baos);
@@ -95,8 +119,10 @@ public class GeneralDocumentationServletTest {
     servlet.doGet(request, response);
     writer.flush();
     String s = baos.toString("UTF-8");
-    assertEquals(true, s.contains(DocumentedService.class.getAnnotation(
-        ServiceDocumentation.class).url()));
+
+    assertTrue(s.contains("Search nodes"));
+    assertTrue(s.contains("Proxy nodes"));
+
   }
 
   private ServiceReference createServiceReference() {

@@ -68,6 +68,9 @@ public class ProxyDocumentationServlet extends SlingSafeMethodsServlet {
   protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
       throws ServletException, IOException {
 
+    response.setContentType("text/html");
+    response.setCharacterEncoding("UTF-8");
+
     RequestParameter path = request.getRequestParameter(PATH_PARAM);
     Session session = request.getResourceResolver().adaptTo(Session.class);
 

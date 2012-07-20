@@ -14,11 +14,11 @@
 	<parent>
 		<groupId>org.sakaiproject.nakamura</groupId>
 		<artifactId>base</artifactId>
-		<version>1.2.0</version>
+		<version>1.3.0</version>
 		<relativePath>../../pom.xml</relativePath>
 	</parent>
 	<artifactId>org.sakaiproject.nakamura.woodstox</artifactId>
-	<version>4.0.7.1.2.0</version>
+	<version>4.0.7.1.3.0</version>
 	<packaging>bundle</packaging>
 	<name>Sakai Nakamura :: Woodstox/StAX</name>
 	<description>
@@ -73,7 +73,7 @@
 						<Bundle-SymbolicName>org.sakaiproject.nakamura.woodstox</Bundle-SymbolicName>
 						<Import-Package>!javax.xml.stream.*,!com.sun.msv.*,*</Import-Package>
 						<Export-Package>
-							javax.xml.stream.*;version=1.0.2,
+							javax.xml.stream.*;version=1.0.1,
 							org.codehaus.stax2.*;version=3.0.1,
 							com.ctc.wstx.*;version=4.0.7,
 							org.relaxng.datatype.*;version=20020414

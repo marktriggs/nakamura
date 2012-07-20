@@ -19,6 +19,7 @@ package org.sakaiproject.nakamura.files.pool;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Matchers.eq;
 import static org.mockito.Mockito.mock;
@@ -53,6 +54,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
@@ -66,6 +68,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.security.Principal;
 import java.util.Arrays;
+import java.util.HashMap;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
@@ -171,6 +174,7 @@ public class ManageMembersContentPoolServletTest {
     servlet.profileService = profileService;
     servlet.authorizableCountChanger = authorizableCountChanger;
     when(resource.getResourceResolver()).thenReturn(resourceResolver);
+    when(resource.adaptTo(org.sakaiproject.nakamura.api.lite.Session.class)).thenReturn(sparseSession);
     when(resourceResolver.adaptTo(Session.class)).thenReturn(session);
 
     // Mock the request and the filenode.
@@ -420,6 +424,80 @@ public class ManageMembersContentPoolServletTest {
     // Verify bob was really removed from the viewers list
     String[] viewers = (String[]) sparseSession.getContentManager().get("pooled-content-id").getProperty("sakai:pooled-content-viewer");
     assertFalse("'bob' should not still be in the viewers list.",Arrays.asList(viewers).contains("bob"));
+  }
+
+  /**
+   * Verify that when you switch a user from a viewer to an editor (or manager), that they
+   * will have sufficient access to read the the content.
+   * 
+   * @throws Exception
+   */
+  @Test
+  public void testAddViewerAndChangeToEditor() throws Exception {
+    // sandboxing a special repository for this test, want to use a controlled permission
+    // layout
+    Repository repository = new BaseMemoryRepository().getRepository();
+    org.sakaiproject.nakamura.api.lite.Session adminSession = repository
+        .loginAdministrative();
+    Content content = new Content("/testAddViewerAndChangeToEditor/content",
+        ImmutableMap.<String, Object> of("key", "value"));
+    adminSession.getContentManager().update(content);
+
+    // lock down the permissions for the test user
+    adminSession.getAccessControlManager().setAcl(
+        Security.ZONE_CONTENT,
+        "/testAddViewerAndChangeToEditor",
+        new AclModification[] { new AclModification(AclModification.denyKey("test"),
+            Permissions.ALL.getPermission(), Operation.OP_REPLACE) });
+
+    adminSession.getAuthorizableManager().createUser("test", "test", "test",
+        new HashMap<String, Object>());
+    Authorizable testUser = adminSession.getAuthorizableManager()
+        .findAuthorizable("test");
+
+    Resource resource = Mockito.mock(Resource.class);
+    when(resource.adaptTo(Content.class)).thenReturn(content);
+    when(resource.adaptTo(org.sakaiproject.nakamura.api.lite.Session.class)).thenReturn(
+        adminSession);
+
+    SlingHttpServletRequest request = Mockito.mock(SlingHttpServletRequest.class);
+    when(request.getResource()).thenReturn(resource);
+
+    // first give view permissions
+    when(request.getParameterValues(":manager@Delete")).thenReturn(
+        new String[] { "test" });
+    when(request.getParameterValues(":editor@Delete"))
+        .thenReturn(new String[] { "test" });
+    when(request.getParameterValues(":viewer@Delete")).thenReturn(null);
+    when(request.getParameterValues(":manager")).thenReturn(null);
+    when(request.getParameterValues(":editor")).thenReturn(null);
+    when(request.getParameterValues(":viewer")).thenReturn(new String[] { "test" });
+    servlet.doPost(request, response);
+
+    // ensure bob can view, but cannot write
+    assertTrue(adminSession.getAccessControlManager().can(testUser,
+        Security.ZONE_CONTENT, content.getPath(), Permissions.CAN_READ));
+    assertFalse(adminSession.getAccessControlManager().can(testUser,
+        Security.ZONE_CONTENT, content.getPath(), Permissions.CAN_WRITE));
+
+    // now give bob editor
+    when(request.getParameterValues(":manager@Delete")).thenReturn(
+        new String[] { "test" });
+    when(request.getParameterValues(":editor@Delete")).thenReturn(null);
+    when(request.getParameterValues(":viewer@Delete"))
+        .thenReturn(new String[] { "test" });
+    when(request.getParameterValues(":manager")).thenReturn(null);
+    when(request.getParameterValues(":editor")).thenReturn(new String[] { "test" });
+    when(request.getParameterValues(":viewer")).thenReturn(null);
+    servlet.doPost(request, response);
+
+    // ensure bob can view and edit
+    assertTrue(adminSession.getAccessControlManager().can(testUser,
+        Security.ZONE_CONTENT, content.getPath(), Permissions.CAN_READ));
+    assertTrue(adminSession.getAccessControlManager().can(testUser,
+        Security.ZONE_CONTENT, content.getPath(), Permissions.CAN_WRITE));
+
+    adminSession.logout();
   }
 
   private void initializeSessionWithUser(String userId) throws StorageClientException, AccessDeniedException {

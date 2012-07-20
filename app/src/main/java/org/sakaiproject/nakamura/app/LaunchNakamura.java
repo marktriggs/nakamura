@@ -27,6 +27,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.lang.System;
 import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -230,7 +231,8 @@ public class LaunchNakamura extends javax.swing.JFrame {
         runStatus = APP_RUNNING;
         isStartupFinished();
       } catch (Exception e) {
-        statusLabel.setText("Nakamura is startup failed " + e.getMessage());
+        statusLabel.setText("Nakamura startup failed: " + e.getMessage());
+        e.printStackTrace(System.err);
       }
     } else {
       // Can't start it again...

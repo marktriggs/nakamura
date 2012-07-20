@@ -45,8 +45,8 @@ import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.search.solr.Result;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.sakaiproject.nakamura.api.user.UserConstants;
+import org.sakaiproject.nakamura.api.user.counts.CountProvider;
 import org.sakaiproject.nakamura.user.BasicUserInfoServiceImpl;
-import org.sakaiproject.nakamura.user.counts.CountProvider;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;

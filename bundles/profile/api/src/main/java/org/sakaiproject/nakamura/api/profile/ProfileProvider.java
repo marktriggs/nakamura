@@ -35,7 +35,7 @@ public interface ProfileProvider {
   static final String PROVIDER_NAME = "sakai.profile.provider.name";
 
   /**
-   * Generate a Map of Nodes to Future Maps for this provider, where the Future Map will
+   * Generate a Map of Node reference to Future Maps for this provider, where the Future Map will
    * replace the node subtree at the Node referenced in the map.
    *
    * @param list
@@ -43,7 +43,7 @@ public interface ProfileProvider {
    *          operation.
    * @return
    */
-  Map<Content, ? extends Future<Map<String, Object>>> getProvidedMap(
+  Map<String, ? extends Future<Map<String, Object>>> getProvidedMap(
       List<ProviderSettings> list);
 
 }

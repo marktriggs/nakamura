@@ -133,15 +133,10 @@ public class DocumentationServletTest {
   }
 
   @Test
-  public void testList() throws IOException, ServletException {
-    SlingHttpServletRequest request = mock(SlingHttpServletRequest.class);
-    SlingHttpServletResponse response = mock(SlingHttpServletResponse.class);
+  public void testWriteIndex() throws IOException, ServletException {
 
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     PrintWriter writer = new PrintWriter(baos);
-    when(response.getWriter()).thenReturn(writer);
-
-    when(request.getRequestParameter("p")).thenReturn(null);
 
     Servlet documentedServlet = new DocumentedService();
     ServiceReference reference = createServiceReference();
@@ -149,11 +144,10 @@ public class DocumentationServletTest {
     ServletDocumentationRegistry registry = mock(ServletDocumentationRegistry.class);
     Map<String, ServletDocumentation> docMap = new HashMap<String, ServletDocumentation>();
     docMap.put(servletDocumentation.getKey(), servletDocumentation);
-    when(registry.getServletDocumentation()).thenReturn(docMap);    
+    when(registry.getServletDocumentation()).thenReturn(docMap);
     servlet.servletDocumentationRegistry = registry;
 
-    servlet.doGet(request, response);
-
+    servlet.writeIndex(writer);
     writer.flush();
     String s = baos.toString("UTF-8");
 

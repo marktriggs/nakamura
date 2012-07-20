@@ -53,20 +53,20 @@ public class PersonProfileProviderAdapter implements ProfileProvider {
    *
    * @see org.sakaiproject.nakamura.api.profile.ProfileProvider#getProvidedMap(java.util.List)
    */
-  public Map<Content, ? extends Future<Map<String, Object>>> getProvidedMap(
+  public Map<String, ? extends Future<Map<String, Object>>> getProvidedMap(
       List<ProviderSettings> list) {
 
-    Map<Content, Future<Map<String, Object>>> resultMap = new HashMap<Content, Future<Map<String, Object>>>();
+    Map<String, Future<Map<String, Object>>> resultMap = new HashMap<String, Future<Map<String, Object>>>();
 
     for (ProviderSettings s : list) {
       Content c = s.getNode();
       try {
         Map<String, Object> profile = personProvider.getProfileSection(c);
-        resultMap.put(c, new ImmediateFuture<Map<String, Object>>(profile));
+        resultMap.put(c.getPath(), new ImmediateFuture<Map<String, Object>>(profile));
       } catch (PersonProviderException e) {
         Map<String, Object> profileError = new HashMap<String, Object>();
         profileError.put("error", e.getMessage());
-        resultMap.put(c, new ImmediateFuture<Map<String, Object>>(profileError));
+        resultMap.put(c.getPath(), new ImmediateFuture<Map<String, Object>>(profileError));
       }
     }
 

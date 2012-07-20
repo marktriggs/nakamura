@@ -17,16 +17,9 @@
  */
 package org.sakaiproject.nakamura.doc;
 
-import static org.sakaiproject.nakamura.api.doc.DocumentationConstants.CSS_CLASS_PATH;
-import static org.sakaiproject.nakamura.api.doc.DocumentationConstants.CSS_CLASS_SHORT_DESCRIPTION;
-import static org.sakaiproject.nakamura.api.doc.DocumentationConstants.CSS_CLASS_VERSIONS;
-import static org.sakaiproject.nakamura.api.doc.DocumentationConstants.CSS_CLASS_VERSION_WARNING;
-
 import org.sakaiproject.nakamura.api.doc.DocumentationConstants;
 
 import java.io.PrintWriter;
-import java.util.Arrays;
-
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -45,7 +38,7 @@ public class DocumentationWriter {
   private PrintWriter writer;
 
   /**
-   * @param title The title that this writer should print.
+   * @param title       The title that this writer should print.
    * @param printWriter The actual writer where content should be written to.
    */
   public DocumentationWriter(String title, PrintWriter printWriter) {
@@ -55,25 +48,24 @@ public class DocumentationWriter {
 
   /**
    * Write out a list of nodes.
-   * 
-   * @param session
-   *          The current JCR session.
-   * @param writer
-   *          The writer where the response should go to.
-   * @param query
-   *          The query to use to retrieve the nodes.
+   *
+   * @param session The current JCR session.
+   * @param writer  The writer where the response should go to.
+   * @param query   The query to use to retrieve the nodes.
    * @throws InvalidQueryException
    * @throws RepositoryException
    */
   public void writeNodes(Session session, String query, String servlet)
-      throws InvalidQueryException, RepositoryException {
-    // Write the HTML header.
-    writer.append(DocumentationConstants.HTML_HEADER);
+      throws RepositoryException {
 
-    // Begin list
-    writer.append("<h1>").append(getTitle()).append("</h1>");
-    writer.append("<ul class=\"").append(
+    writer.append("<h1><a name=\"").append(getTitle()).append("\">").append(getTitle()).append("</a></h1>");
+    writer.append("<table class=\"").append(
         DocumentationConstants.CSS_CLASS_DOCUMENTATION_LIST).append("\">");
+    writer.append("<thead>");
+    writer.append("<th>Name/Description</th>");
+    writer.append("<th>Path</th>");
+    writer.append("</thead>");
+    writer.append("<tbody>");
 
     QueryManager qm = session.getWorkspace().getQueryManager();
     Query q = qm.createQuery(query, Query.XPATH);
@@ -83,7 +75,8 @@ public class DocumentationWriter {
       Node node = iterator.nextNode();
       NodeDocumentation doc = new NodeDocumentation(node);
 
-      writer.append("<li><a href=\"");
+      writer.append("<tr>");
+      writer.append("<td><a href=\"");
       writer.append(servlet);
       writer.append("?p=");
       writer.append(doc.getPath());
@@ -93,38 +86,39 @@ public class DocumentationWriter {
       } else {
         writer.append(doc.getPath());
       }
-      writer.append("</a><span class=\"").append(CSS_CLASS_PATH).append("\">");
-      writer.append(doc.getPath());
-      writer.append("</span><p class=\"").append(CSS_CLASS_SHORT_DESCRIPTION).append(
-          "\">");
-      writer.append(doc.getShortDescription());
-      writer.append("</p><p class=\"").append(CSS_CLASS_VERSIONS).append(
-      "\">");
-      writer.append(Arrays.toString(doc.getVersions()));
-      if ( !doc.isVersionOk() ) {
-        writer.append("</p><p class=\"").append(CSS_CLASS_VERSION_WARNING).append(
-        "Caution: Documentation Has not been reviewed for this release\">");
+      writer.append("</a>");
+      String desc = doc.getShortDescription();
+      if (desc == null) {
+        if (doc.getDescription() == null || doc.getDescription().length == 0) {
+          writer.append("<p>No documentation available.</p>");
+        } else {
+          for (String d : doc.getDescription()) {
+            writer.append("<p>").append(d).append("</p>");
+          }
         }
-      writer.append("</p></li>");
+      } else {
+        writer.append("<p>").append(desc).append("</p>");
+      }
+      writer.append("</td>");
+
+      writer.append("<td>");
+      writer.append(doc.getPath());
+      writer.append("</td>");
+
+      writer.append("</tr>");
 
     }
 
-    // End list
-    writer.append("</ul>");
+    writer.append("</tbody></table>");
 
-    // Footer
-    writer.append(DocumentationConstants.HTML_FOOTER);
   }
 
   /**
    * Write info for a specific node.
    *
-   * @param path
-   *          The path to the node.
-   * @param session
-   *          The current JCR session.
-   * @param writer
-   *          The writer to send the response to.
+   * @param path    The path to the node.
+   * @param session The current JCR session.
+   * @param writer  The writer to send the response to.
    * @throws RepositoryException
    */
   public void writeSearchInfo(String path, Session session) throws RepositoryException {
@@ -139,14 +133,6 @@ public class DocumentationWriter {
   }
 
   /**
-   * @param title
-   *          The title that should be outputted as a h1 on the listing.
-   */
-  public void setTitle(String title) {
-    this.title = title;
-  }
-
-  /**
    * @return the The title that should be outputted as a h1 on the listing.
    */
   public String getTitle() {
@@ -154,8 +140,7 @@ public class DocumentationWriter {
   }
 
   /**
-   * @param writer
-   *          the writer to write the info to.
+   * @param writer the writer to write the info to.
    */
   public void setWriter(PrintWriter writer) {
     this.writer = writer;

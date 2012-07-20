@@ -44,6 +44,20 @@ public class ParameterMap extends LinkedHashMap<String, RequestParameter[]> impl
         }
         parameters.put(originalParameterName, stringValues);
       }
+      // Some extensions depend on knowing locale.
+      parameters.put("SlingHttpServletRequest.locale",
+          new Object[] { request.getLocale() });
+      // Some extensions depend on knowing URL stuffs.
+      parameters.put("SlingHttpServletRequest.serverPort",
+          new Object[] { request.getServerPort() });
+      parameters.put("SlingHttpServletRequest.scheme",
+          new Object[] { request.getScheme() });
+      parameters.put("SlingHttpServletRequest.serverName",
+          new Object[] { request.getServerName() });
+      parameters.put("SlingHttpServletRequest.contextPath",
+          new Object[] { request.getContextPath() });
+      parameters.put("SlingHttpServletRequest.getRemoteAddr",
+          new Object[] { request.getRemoteAddr() });
     }
     return parameters;
   }

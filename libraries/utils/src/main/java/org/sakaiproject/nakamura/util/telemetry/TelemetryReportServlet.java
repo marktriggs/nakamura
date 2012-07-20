@@ -59,6 +59,7 @@ public class TelemetryReportServlet extends SlingSafeMethodsServlet {
 
       hd.setResult(streamResult);
       hd.startDocument();
+      hd.processingInstruction("xml-stylesheet","type=\"text/xsl\" href=\"/system/resmon/resmon.xsl\"");
       AttributesImpl atts = new AttributesImpl();
       hd.startElement("","","ResmonResults",atts);
       for ( String telemetryKey : TelemetryCounter.counters.keySet() ) {

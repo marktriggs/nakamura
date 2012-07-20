@@ -33,28 +33,16 @@ import org.sakaiproject.nakamura.api.lite.content.ContentManager;
  * and after a move the path reference becomes invalid.
  * </p>
  * <p>
- * A move cleaner responds to the moving of content based. Move cleaners are intended to
- * respond to content with a resource type. The resource type is defined by setting the
- * component configuration property of,
- * </p>
- * 
- * <pre>
- * sakai.movecleaner.resourcetyp
- * </pre>
- * 
- * {@link MoveCleaner#RESOURCE_TYPE}
- * <p>
- * to match the resource type(s) the cleaner knows how to handle. This is a required
- * property and a warning is written to the log if the property is not found.
+ * A move cleaner is intended to respond to the moving of content based on resource type.
  * </p>
  */
 public interface MoveCleaner {
-  String RESOURCE_TYPE = "sakai.movecleaner.resourcetype";
 
   /**
-   * Clean some content after it has been moved. This method is guaranteed to receive a
-   * content object that has the property "sling:resourceType" per the definition of the
-   * OSGi configuration property.
+   * Clean some content after it has been moved. This method is guaranteed to receive the
+   * {@code fromPath} and {@code toPath} paths for every individual node that is moved in a move
+   * operation. In the case of a recursive tree move, all individual nodes that are moved therein
+   * will be passed through this method.
    *
    * @param fromPath
    *          The path the data was moved from.

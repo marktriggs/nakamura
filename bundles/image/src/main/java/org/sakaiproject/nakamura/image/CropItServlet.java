@@ -190,11 +190,9 @@ public class CropItServlet extends SlingAllMethodsServlet {
     } catch (JSONException e) {
       response.sendError(500, "Unable to output JSON.");
     } catch (StorageClientException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      logger.error(e.getMessage(), e);
     } catch (AccessDeniedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      logger.error(e.getMessage(), e);
     }
   }
 

@@ -19,7 +19,6 @@ package org.sakaiproject.nakamura.files.migrator;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -34,12 +33,6 @@ import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
-import org.sakaiproject.nakamura.api.lite.authorizable.Group;
-import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.resource.lite.LiteJsonImporter;
@@ -50,8 +43,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.StringWriter;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -91,7 +82,7 @@ public class DocMigrator implements FileMigrationService {
     try {
       return !(content == null || isNotSakaiDoc(content) || schemaVersionIsCurrent(content) || contentHasUpToDateStructure(content));
     } catch (SakaiDocMigrationException e) {
-      LOGGER.error("Could not determine requiresMigration with content {}", content.getPath());
+      LOGGER.error("Could not determine requiresMigration with content "+content.getPath(), e);
       throw new RuntimeException("Could not determine requiresMigration with content " + content.getPath());
     }
   }
@@ -129,21 +120,14 @@ public class DocMigrator implements FileMigrationService {
     return !content.hasProperty(STRUCTURE_ZERO);
   }
 
-
-  private JSONObject getStructureZero (Content content) throws JSONException
-  {
-    return new JSONObject(StorageClientUtils.toString(content.getProperty(STRUCTURE_ZERO)));
-  }
-
-
   private boolean contentHasUpToDateStructure(Content content) throws SakaiDocMigrationException {
     Session adminSession = null;
     try {
       adminSession = repository.loginAdministrative();
-      JSONObject structure0 = getStructureZero(content);
+      JSONObject structure0 = new JSONObject(getStructure0(content));
       return !requiresMigration(structure0, content, adminSession.getContentManager());
     } catch (Exception e) {
-      throw new SakaiDocMigrationException();
+      throw new SakaiDocMigrationException("Error determining if content has an up to date structure.", e);
     } finally {
       if (adminSession != null) {
         try {
@@ -170,30 +154,16 @@ public class DocMigrator implements FileMigrationService {
     ExtendedJSONWriter stringJsonWriter = new ExtendedJSONWriter(stringWriter);
     Session adminSession = null;
     try {
+      ExtendedJSONWriter.writeContentTreeToWriter(stringJsonWriter, content, false, -1);
       adminSession = repository.loginAdministrative();
-      ContentManager adminContentManager = adminSession.getContentManager();
-      
-      // pull the content JSON using an admin session
-      Content adminContent = adminContentManager.get(content.getPath());
-      ExtendedJSONWriter.writeContentTreeToWriter(stringJsonWriter, adminContent, false, -1);
-      JSONObject newPageStructure = createNewPageStructure(getStructureZero(content), new JSONObject(stringWriter.toString()));
+      JSONObject newPageStructure = createNewPageStructure(new JSONObject(
+          getStructure0(content)), new JSONObject(stringWriter.toString()));
 
       JSONObject convertedStructure = (JSONObject) convertArraysToObjects(newPageStructure);
       validateStructure(convertedStructure);
-      
       LOGGER.debug("Generated new page structure. Saving content {}", content.getPath());
       LiteJsonImporter liteJsonImporter = new LiteJsonImporter();
-      liteJsonImporter.importContent(adminContentManager, convertedStructure, content.getPath(), true, true, false, true, adminSession.getAccessControlManager(), Boolean.FALSE);
-      
-      // lock down basiclti widget ltiKeys
-      List<Content> basicLtiWidgets = new LinkedList<Content>();
-      collectResourcesOfType(adminContent, "sakai/basiclti", basicLtiWidgets);
-      for (Content basicLtiWidget : basicLtiWidgets) {
-        String ltiKeysPath = StorageClientUtils.newPath(basicLtiWidget.getPath(), "ltiKeys");
-        if (adminContentManager.exists(ltiKeysPath)) {
-          accessControlSensitiveNode(ltiKeysPath, adminSession);
-        }
-      }
+      liteJsonImporter.importContent(adminSession.getContentManager(), convertedStructure, content.getPath(), true, true, false, true, adminSession.getAccessControlManager(), Boolean.FALSE);
     } catch (Exception e) {
       LOGGER.error(e.getMessage());
       throw new RuntimeException("Error while migrating " + content.getPath());
@@ -300,10 +270,14 @@ public class DocMigrator implements FileMigrationService {
       (((JSONArray) json).get(0) instanceof JSONObject || ((JSONArray) json).get(0) instanceof JSONArray);
   }
 
+  private String getStructure0(Content content) {
+    Object structure0 = content.getProperty(STRUCTURE_ZERO);
+    return (structure0 != null) ? structure0.toString() : null;
+  }
+  
   protected JSONObject convertArrayToObject(JSONArray jsonArray) throws JSONException {
     JSONObject arrayObject = new JSONObject();
     for (int i = 0; i < jsonArray.length(); i++) {
-      Object value = convertArraysToObjects(jsonArray.get(i));
       arrayObject.put("__array__" + i + "__", convertArraysToObjects(jsonArray.get(i)));
     }
     return arrayObject;
@@ -316,33 +290,4 @@ public class DocMigrator implements FileMigrationService {
     LOGGER.debug("new page structure passes validation.");
   }
 
-  private void collectResourcesOfType(Content content, String resourceType, List<Content> resources) {
-    if (resourceType.equals(content.getProperty(Content.SLING_RESOURCE_TYPE_FIELD))) {
-      resources.add(content);
-    }
-    for (Content child : content.listChildren()) {
-      collectResourcesOfType(child, resourceType, resources);
-    }
-  }
-  
-  /**
-   * Apply the necessary access control entries so that only admin users can read/write
-   * the sensitive node.
-   * 
-   * @param sensitiveNodePath
-   * @param adminSession
-   * @throws StorageClientException
-   * @throws AccessDeniedException
-   */
-  private void accessControlSensitiveNode(final String sensitiveNodePath,
-      final Session adminSession) throws StorageClientException, AccessDeniedException {
-    adminSession.getAccessControlManager().setAcl(
-        Security.ZONE_CONTENT,
-        sensitiveNodePath,
-        new AclModification[] {
-            new AclModification(AclModification.denyKey(User.ANON_USER), Permissions.ALL
-                .getPermission(), Operation.OP_REPLACE),
-            new AclModification(AclModification.denyKey(Group.EVERYONE), Permissions.ALL
-                .getPermission(), Operation.OP_REPLACE) });
-  }
 }

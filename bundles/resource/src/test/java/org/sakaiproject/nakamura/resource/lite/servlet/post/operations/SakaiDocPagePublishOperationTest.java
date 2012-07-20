@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableMap;
 import junit.framework.Assert;
 
 import org.apache.sling.api.SlingHttpServletRequest;
+import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.servlets.HtmlResponse;
 import org.apache.sling.servlets.post.Modification;
 import org.junit.Test;
@@ -31,11 +32,13 @@ import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
+import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
+import org.sakaiproject.nakamura.resource.lite.SparsePostOperationServiceImpl;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -52,6 +55,12 @@ public class SakaiDocPagePublishOperationTest {
   protected SlingHttpServletRequest request;
   
   @Mock
+  ResourceResolver resourceResolver;
+
+  @Mock
+  MockableJcrSessionSessionAdaptable sessionAdaptable;
+  
+  @Mock
   protected HtmlResponse response;
   
   @Test(expected=IllegalArgumentException.class)
@@ -60,8 +69,10 @@ public class SakaiDocPagePublishOperationTest {
     String to = namespace("testPublishWrongPath/wrongAgain");
     Repository repo = createRepository();
     SakaiDocPagePublishOperation op = createOperation();
-    mockRequest(request, to);
-    op.doRun(request, response, repo.loginAdministrative().getContentManager(), new LinkedList<Modification>(), from);
+    
+    Session adminSession = repo.loginAdministrative();
+    mockRequest(request, to, adminSession);
+    op.doRun(request, response, adminSession.getContentManager(), new LinkedList<Modification>(), from);
   }
   
   @Test(expected=IllegalArgumentException.class)
@@ -70,8 +81,10 @@ public class SakaiDocPagePublishOperationTest {
     String to = namespace("testDraftDoesNotExist/nonexistent/id12345");
     Repository repo = createRepository();
     SakaiDocPagePublishOperation op = createOperation();
-    mockRequest(request, to);
-    op.doRun(request, response, repo.loginAdministrative().getContentManager(), new LinkedList<Modification>(), from);
+    
+    Session adminSession = repo.loginAdministrative();
+    mockRequest(request, to, adminSession);
+    op.doRun(request, response, adminSession.getContentManager(), new LinkedList<Modification>(), from);
   }
   
   @Test
@@ -80,12 +93,13 @@ public class SakaiDocPagePublishOperationTest {
     String to = namespace("testPublishNoClobber/id12345");
     
     Repository repo = createRepository();
-    ContentManager cm = repo.loginAdministrative().getContentManager();
+    Session adminSession = repo.loginAdministrative();
+    ContentManager cm = adminSession.getContentManager();
     createMessageInPage(cm, from, "DraftPage", "DraftWidget", "message", "DraftContent");
     createMessageInPage(cm, to, "LivePage", "LiveWidget", "message", "LiveContent");
     
     SakaiDocPagePublishOperation op = createOperation();
-    mockRequest(request, to);
+    mockRequest(request, to, adminSession);
     op.doRun(request, response, cm, new LinkedList<Modification>(), from);
     
     //verify the draft was deleted
@@ -115,7 +129,8 @@ public class SakaiDocPagePublishOperationTest {
     String to = namespace("testPublishWithClobber/id12345");
     
     Repository repo = createRepository();
-    ContentManager cm = repo.loginAdministrative().getContentManager();
+    Session adminSession = repo.loginAdministrative();
+    ContentManager cm = adminSession.getContentManager();
     createMessageInPage(cm, from, "DraftPage", "DraftWidget", "message", "DraftContent");
     createMessageInPage(cm, to, "LivePage", "LiveWidget", "message", "LiveContent");
     
@@ -127,7 +142,7 @@ public class SakaiDocPagePublishOperationTest {
     cm.update(new Content(draftMessage.getPath(), props));
     
     SakaiDocPagePublishOperation op = createOperation();
-    mockRequest(request, to);
+    mockRequest(request, to, adminSession);
     op.doRun(request, response, cm, new LinkedList<Modification>(), from);
     
     //verify the draft was deleted
@@ -163,7 +178,8 @@ public class SakaiDocPagePublishOperationTest {
     String to = namespace("testPublishKeepNewMessages/id12345");
     
     Repository repo = createRepository();
-    ContentManager cm = repo.loginAdministrative().getContentManager();
+    Session adminSession = repo.loginAdministrative();
+    ContentManager cm = adminSession.getContentManager();
     createMessageInPage(cm, from, "DraftPage", "DraftWidget", "message", "DraftContent");
     createMessageInPage(cm, to, "LivePage", "LiveWidget", "message", "LiveContent");
     
@@ -171,7 +187,7 @@ public class SakaiDocPagePublishOperationTest {
     cm.delete(from+"/widget/message");
     
     SakaiDocPagePublishOperation op = createOperation();
-    mockRequest(request, to);
+    mockRequest(request, to, adminSession);
     op.doRun(request, response, cm, new LinkedList<Modification>(), from);
     
     //verify the draft was deleted
@@ -203,14 +219,19 @@ public class SakaiDocPagePublishOperationTest {
     cm.update(new Content(path+"/widget/message", ImmutableMap.<String, Object>of("sling:resourceType", "sakai/message", messagePropName, messagePropValue)));
   }
   
-  protected void mockRequest(SlingHttpServletRequest request, String to) {
+  protected void mockRequest(SlingHttpServletRequest request, String to, Session session) {
     Mockito.when(request.getParameter(":replace")).thenReturn("true");
     Mockito.when(request.getParameter(":dest")).thenReturn(to);
     Mockito.when(request.getParameter(":keepDestHistory")).thenReturn("true");
+    Mockito.when(request.getResourceResolver()).thenReturn(resourceResolver);
+    Mockito.when(resourceResolver.adaptTo(javax.jcr.Session.class)).thenReturn(sessionAdaptable);
+    Mockito.when(sessionAdaptable.getSession()).thenReturn(session);
   }
   
   protected SakaiDocPagePublishOperation createOperation() {
-    return new SakaiDocPagePublishOperation();
+    SakaiDocPagePublishOperation op = new SakaiDocPagePublishOperation();
+    op.sparsePostOperationService = new SparsePostOperationServiceImpl();
+    return op;
   }
   
   protected Repository createRepository() throws ClientPoolException, StorageClientException,

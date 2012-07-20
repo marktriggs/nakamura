@@ -99,7 +99,8 @@ public class WidgetDataIndexingHandler implements IndexingHandler {
         ContentManager cm = session.getContentManager();
         Content content = cm.get(path);
 
-        if (content == null || !CONTENT_TYPES.contains(content.getProperty("sling:resourceType"))) {
+        if (content == null || !CONTENT_TYPES.contains(content.getProperty("sling:resourceType"))
+            || isTemporaryContent(path)) {
           return docs;
         }
 
@@ -139,6 +140,7 @@ public class WidgetDataIndexingHandler implements IndexingHandler {
         Object parentFilenameObj = parentProperties
             .get(FilesConstants.POOLED_CONTENT_FILENAME);
         if (parentFilenameObj != null) {
+          doc.setField("filename", String.valueOf(parentFilenameObj));
           doc.addField("general_sort", String.valueOf(parentFilenameObj));
         }
         
@@ -155,6 +157,10 @@ public class WidgetDataIndexingHandler implements IndexingHandler {
       }
     }
     return docs;
+  }
+
+  private boolean isTemporaryContent(String path) {
+    return path.contains("/tmp_");
   }
 
   /**

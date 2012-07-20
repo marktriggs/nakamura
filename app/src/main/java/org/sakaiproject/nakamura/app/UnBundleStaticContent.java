@@ -22,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.JarURLConnection;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -76,13 +77,14 @@ public class UnBundleStaticContent {
 							+ " (deleted a temp file but failed to recreate it as a directory)");
 		}
 		try {
-			List<File> unpackedBundles = unpackJarContents(
-					getContainingJarFile(markerClass),
+			URL jfu = getContainingJarFileURL(markerClass);
+			JarFile jf = ((JarURLConnection) jfu.openConnection()).getJarFile();
+			List<File> unpackedBundles = unpackJarContents(jf,
 					new String[] { bundlePath },
 					new String[] { tempFolder.getAbsolutePath() });
 			for (File f : unpackedBundles) {
 				try {
-					unpackJarContents(f, source, dest);
+					unpackJarContents(new JarFile(f), source, dest);
 				} catch (IOException e) {
 					logger.info("Failed to Unpack " + f.getName(), e);
 				}
@@ -103,33 +105,24 @@ public class UnBundleStaticContent {
 		}
 	}
 
-	private List<File> unpackJarContents(File containingJarFile,
+	private List<File> unpackJarContents(JarFile containingJarFile,
 			String[] source, String[] dest) throws IOException {
-		JarFile jf = new JarFile(containingJarFile);
 		List<File> files = new ArrayList<File>();
-		for (Enumeration<JarEntry> jee = jf.entries(); jee.hasMoreElements();) {
+		for (Enumeration<JarEntry> jee = containingJarFile.entries(); jee.hasMoreElements();) {
 			JarEntry je = jee.nextElement();
 			String name = je.getName();
 			for (int i = 0; i < source.length; i++) {
 				if (name.startsWith(source[i]) && !je.isDirectory()) {
 					File target = new File(dest[i], name.substring(source[i]
 							.length()));
-					if (!target.exists()
-							|| target.lastModified() < je.getTime()
-							|| je.getTime() < 0) {
-						target.getParentFile().mkdirs();
-						OutputStream out = new FileOutputStream(target);
-						InputStream in = jf.getInputStream(je);
-						copy(in, out);
-						out.close();
-						in.close();
-						logger.info("Updated      " + target.getAbsoluteFile(),
-								null);
-					} else {
-						logger.info("No Update to " + target.getAbsoluteFile(),
-								null);
-
-					}
+					target.getParentFile().mkdirs();
+					OutputStream out = new FileOutputStream(target);
+					InputStream in = containingJarFile.getInputStream(je);
+					copy(in, out);
+					out.close();
+					in.close();
+					logger.info("Updated      " + target.getAbsoluteFile(),
+							null);
 					files.add(target);
 				}
 			}
@@ -159,4 +152,10 @@ public class UnBundleStaticContent {
 		return new File(u.toURI());
 	}
 
+	private URL getContainingJarFileURL(Class<?> clazz)
+			throws MalformedURLException, URISyntaxException {
+		String resource = clazz.getName().replace('.', '/') + ".class";
+		URL u = clazz.getClassLoader().getResource(resource);
+		return u;
+	}
 }

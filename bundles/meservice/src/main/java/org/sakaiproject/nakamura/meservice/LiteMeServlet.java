@@ -20,7 +20,9 @@ package org.sakaiproject.nakamura.meservice;
 import static org.sakaiproject.nakamura.api.connections.ConnectionState.ACCEPTED;
 import static org.sakaiproject.nakamura.api.connections.ConnectionState.INVITED;
 import static org.sakaiproject.nakamura.api.connections.ConnectionState.PENDING;
+import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.PARAMS_ITEMS_PER_PAGE;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Modified;
@@ -37,6 +39,7 @@ import org.apache.sling.api.wrappers.ValueMapDecorator;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.params.CommonParams;
 import org.sakaiproject.nakamura.api.connections.ConnectionConstants;
 import org.sakaiproject.nakamura.api.connections.ConnectionManager;
 import org.sakaiproject.nakamura.api.doc.BindingType;
@@ -422,9 +425,12 @@ public class LiteMeServlet extends SlingSafeMethodsServlet {
     try {
       String store = messagingService.getFullPathToStore(au.getId(), session);
       store = ISO9075.encodePath(store);
-      store = store.substring(0, store.length() - 1);
-      String queryString = "path:" + ClientUtils.escapeQueryChars(store) + " AND resourceType:sakai/message AND type:internal AND messagebox:inbox AND read:false";
-      Query query = new Query(queryString);
+      String queryString = "messagestore:" + ClientUtils.escapeQueryChars(store) + " AND type:internal AND messagebox:inbox AND read:false";
+      final Map<String, Object> queryOptions = ImmutableMap.of(
+          PARAMS_ITEMS_PER_PAGE, (Object) "0",
+          CommonParams.START, "0"
+      );
+      Query query = new Query(queryString, queryOptions);
       LOG.debug("Submitting Query {} ", query);
       SolrSearchResultSet resultSet = searchServiceFactory.getSearchResultSet(
           request, query, false);

@@ -139,7 +139,7 @@ module NakamuraData
 	group_name = "#{TEST_GROUP_PREFIX}-#{count.to_s}"
 	creator_id = @user_ids[rand(@user_ids.length)]
 	creator_id = creator_id.split(",")[0]
-	group = @full_group_creator.create_full_group creator_id, group_name, "#{group_name} Title", "#{group_name} Description"
+	group = @full_group_creator.create_full_group User.new(creator_id), group_name, "#{group_name} Title", "#{group_name} Description"
 	count = count + 1
 	@groups << group
       end

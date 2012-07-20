@@ -27,7 +27,9 @@ import org.apache.sling.servlets.post.Modification;
 import org.apache.sling.servlets.post.SlingPostConstants;
 import org.apache.sling.servlets.post.VersioningConfiguration;
 import org.sakaiproject.nakamura.api.lite.DataFormatException;
+import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
+import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
@@ -390,5 +392,16 @@ public abstract class AbstractSparsePostOperation implements SparsePostOperation
             // no more elements in the array
             return null;
         }
+    }
+    
+    /**
+     * Adapt the http request to a nakamura lite session.
+     * 
+     * @param request
+     * @return
+     */
+    protected Session adaptToSession(SlingHttpServletRequest request) {
+      return StorageClientUtils.adaptToSession(request.getResourceResolver()
+          .adaptTo(javax.jcr.Session.class));
     }
 }

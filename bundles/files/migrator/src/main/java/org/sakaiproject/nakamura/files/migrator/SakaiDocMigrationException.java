@@ -18,4 +18,18 @@
 package org.sakaiproject.nakamura.files.migrator;
 
 public class SakaiDocMigrationException extends Exception {
+  private static final long serialVersionUID = 8061546346702393591L;
+
+  public SakaiDocMigrationException() {
+    super();
+  }
+  
+  public SakaiDocMigrationException(String message) {
+    super(message);
+  }
+  
+  public SakaiDocMigrationException(String message, Throwable e) {
+    super(message, e);
+  }
+  
 }

@@ -1,0 +1,8 @@
+{
+    "simple-key": "simple-value",
+    "array": ["first", "second", "third"],
+    "object": {
+        "key1": "val1",
+        "key2": "val2"
+    }
+}

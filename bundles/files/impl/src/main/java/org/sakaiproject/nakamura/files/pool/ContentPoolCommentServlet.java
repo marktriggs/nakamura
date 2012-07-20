@@ -20,6 +20,7 @@ package org.sakaiproject.nakamura.files.pool;
 import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_USER_MANAGER;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 
 import org.apache.commons.lang.StringUtils;
@@ -115,6 +116,7 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
   private static final String COMMENT_ID = "commentId";
   private static final String AUTHOR = "author";
   private static final String CREATED = "_created";
+  private static final String COMMENTCOUNT = "commentCount";
 
   @Reference
   private Repository repository;
@@ -159,6 +161,30 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
       Content comments = contentManager.get(poolContent.getPath() + "/" + COMMENTS);
       response.setContentType("application/json");
       response.setCharacterEncoding("UTF-8");
+      
+      // if there is no commentCount property, then calculate and add 
+      if(!poolContent.hasProperty(COMMENTCOUNT)){
+        if (comments!=null){
+          poolContent.setProperty(COMMENTCOUNT, Iterables.size(comments.listChildPaths()));
+        } else {
+          poolContent.setProperty(COMMENTCOUNT, 0);
+        }
+        
+        Session adminSession = null;
+        try{
+          adminSession = repository.loginAdministrative();
+          ContentManager adminContentManager = adminSession.getContentManager();
+          adminContentManager.update(poolContent); 
+        } finally {
+          if (adminSession != null) {
+            try {
+              adminSession.logout();
+            } catch (Exception e) {
+              LOGGER.error("Could not logout administrative session.");
+            }
+          }         
+        }
+      }
 
       ExtendedJSONWriter w = new ExtendedJSONWriter(response.getWriter());
       w.setTidy(isTidy);
@@ -272,6 +298,13 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
         String newNodeName = Long.toString(cal.getTimeInMillis());
         path = path + "/" + newNodeName;
         statusCode = HttpServletResponse.SC_CREATED;
+        
+        // increasing commentCount by 1, for a new comment
+        if(poolContent.hasProperty(COMMENTCOUNT)){
+          int commentCount = (Integer)poolContent.getProperty(COMMENTCOUNT);
+          poolContent.setProperty(COMMENTCOUNT, commentCount+1);
+        }
+        contentManager.update(poolContent);
       }
       ImmutableMap.Builder<String,Object> commentPropertiesBuilder = ImmutableMap.builder();
       commentPropertiesBuilder.put(AUTHOR, user);
@@ -356,6 +389,12 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
         return;
       }
       contentManager.delete(path);
+      // decreasing commentCount by 1, when a comment is deleted
+      if(poolItem.hasProperty(COMMENTCOUNT) ){
+        Integer commentCount = (Integer)poolItem.getProperty(COMMENTCOUNT);
+        if (commentCount > 0) poolItem.setProperty(COMMENTCOUNT, commentCount-1);
+        contentManager.update(poolItem);
+      }
       response.setStatus(HttpServletResponse.SC_NO_CONTENT);
     } catch (AccessDeniedException e) {
       LOGGER.warn(e.getMessage(), e);

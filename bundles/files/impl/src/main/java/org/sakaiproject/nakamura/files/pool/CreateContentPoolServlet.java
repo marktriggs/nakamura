@@ -171,7 +171,7 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
       } catch (Throwable t) {
         LOGGER.error("FileUploadHandler '{}' failed to handle upload of file '{}' for userid '{}': {}",
                      new Object[] { fileUploadHandler, p.getFileName(), userId, t.getMessage()});
-        t.printStackTrace();
+        LOGGER.error(t.getMessage(), t);
       }
     }
   }

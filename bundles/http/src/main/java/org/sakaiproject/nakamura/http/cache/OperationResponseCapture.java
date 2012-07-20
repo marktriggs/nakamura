@@ -139,6 +139,8 @@ public class OperationResponseCapture {
   public void setStatus(int sc) {
     if (sc != 200) {
       dropCache();
+    } else {
+      cacheable = true;
     }
     if (cacheable) {
       operations.add(new Operation(SET_STATUS, sc));

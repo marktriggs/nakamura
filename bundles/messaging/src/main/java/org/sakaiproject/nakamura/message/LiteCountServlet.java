@@ -30,8 +30,12 @@ import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.io.JSONWriter;
+import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.SolrDocumentList;
 import org.apache.solr.common.params.CommonParams;
+import org.apache.solr.common.params.GroupParams;
+import org.apache.solr.common.util.NamedList;
 import org.sakaiproject.nakamura.api.doc.BindingType;
 import org.sakaiproject.nakamura.api.doc.ServiceBinding;
 import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
@@ -43,26 +47,25 @@ import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.message.LiteMessagingService;
 import org.sakaiproject.nakamura.api.search.solr.Query;
-import org.sakaiproject.nakamura.api.search.solr.Result;
+import org.sakaiproject.nakamura.api.search.solr.SolrQueryResponseWrapper;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchResultSet;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletResponse;
-
 /**
- * Will count all the messages under the user his message store. The user can
+ * Will count all the messages under the current user's message store. The user can
  * specify what messages should be counted by specifying parameters in comma
  * separated values. ex:
- * messages.count.json?filters=sakai:messagebox,read,to&values=inbox,true,user1&groupedby=sakai:messagebox
+ * /~joe/message.count.json?filters=sakai:messagebox,sakai:read&values=inbox,false&groupedby=sakai:category
  *
  * The following are optional:
  *  - filters: only nodes with the properties in filters and the values in values
@@ -102,8 +105,6 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
   private static final long serialVersionUID = -5714446506015596037L;
   private static final Logger LOGGER = LoggerFactory.getLogger(LiteCountServlet.class);
 
-  private static long MAX_RESULTS_COUNTED = 500;
-
   @Reference
   protected transient LiteMessagingService messagingService;
   
@@ -118,13 +119,13 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
     Session session = StorageClientUtils.adaptToSession(request.getResourceResolver().adaptTo(javax.jcr.Session.class));
 
     try {
-      // Do the query
-      // We do the query on the user his messageStore's path.
+      // We do the query on the user's messageStore.
       String messageStorePath = ClientUtils.escapeQueryChars(messagingService.getFullPathToStore(request.getRemoteUser(), session));
-      //path:a\:zach/contacts AND resourceType:sakai/contact AND state:("ACCEPTED" -NONE) (name:"*" OR firstName:"*" OR lastName:"*" OR email:"*")) AND readers:(zach OR everyone)&start=0&rows=25&sort=score desc
-      StringBuilder queryString = new StringBuilder("(path:"
-          + messageStorePath + "* AND resourceType:sakai/message"
-          + " AND type:internal");
+      // q=(messagestore:a\:208861/message/ AND type:internal AND messagebox:"inbox"
+      // AND read:"false")&group=true&group.field=category&group.limit=0&fl=category
+      StringBuilder queryString = new StringBuilder("(messagestore:").
+          append(messageStorePath).
+          append(" AND type:internal");
 
       // Get the filters
       if (request.getRequestParameter("filters") != null
@@ -140,76 +141,59 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
         }
 
         for (int i = 0; i < filters.length; i++) {
-          String filterName = filters[i].replaceFirst("sakai:", "");
+          String filterName = filters[i].replaceFirst("^sakai:", "");
           queryString.append(" AND " + filterName + ":\"" + values[i] + "\"");
         }
       }
 
       queryString.append(")");
 
-      // The "groupedby" clause forces us to inspect every message. If not
-      // specified, all we need is the count.
-      final long itemCount;
+      // The "groupedby" clause forces a categorized count. If not
+      // specified, all we need is the total count.
+      String groupedBy;
+      final Map<String, Object> queryOptions;
       if (request.getRequestParameter("groupedby") == null) {
-        itemCount = 0;
+        groupedBy = null;
+        queryOptions = ImmutableMap.of(
+            PARAMS_ITEMS_PER_PAGE, (Object) "0",
+            CommonParams.START, "0"
+        );
       } else {
-        itemCount = MAX_RESULTS_COUNTED;
+        groupedBy = request.getRequestParameter("groupedby").getString();
+        groupedBy = groupedBy.replaceFirst("^sakai:", "");
+        // group=true&group.field=category&group.limit=0&fl=category
+        queryOptions = new ImmutableMap.Builder<String, Object>().
+            put(PARAMS_ITEMS_PER_PAGE, "50").
+            put(CommonParams.START, "0").
+            put(CommonParams.FL, groupedBy).
+            put(GroupParams.GROUP, "true").
+            put(GroupParams.GROUP_FIELD, groupedBy).
+            put(GroupParams.GROUP_LIMIT, "0").
+            build();
       }
-      Map<String, Object> queryOptions = ImmutableMap.of(
-          PARAMS_ITEMS_PER_PAGE, (Object) Long.toString(itemCount),
-          CommonParams.START, "0",
-          CommonParams.SORT, "_created desc"
-      );
 
       Query query = new Query(queryString.toString(), queryOptions);
       LOGGER.info("Submitting Query {} ", query);
       SolrSearchResultSet resultSet = searchServiceFactory.getSearchResultSet(
           request, query, false);
-      Iterator<Result> resultIterator = resultSet.getResultSetIterator();
 
       response.setContentType("application/json");
       response.setCharacterEncoding("UTF-8");
 
       JSONWriter write = new JSONWriter(response.getWriter());
 
-      if (request.getRequestParameter("groupedby") == null) {
+      if (groupedBy == null) {
         write.object();
         write.key("count");
         write.value(resultSet.getSize());
         write.endObject();
       } else {
         // The user want to group the count by a specified set.
-        // We will have to traverse each node, get that property and count each
-        // value for it.
-        String groupedby = request.getRequestParameter("groupedby").getString();
-        if (groupedby.startsWith("sakai:")) {
-          groupedby = groupedby.substring(6);
-        }
-
-        long count = 0;
-        Map<String, Integer> mapCount = new HashMap<String, Integer>();
-        while (resultIterator.hasNext()) {
-          Result n = resultIterator.next();
-
-          if (count >= MAX_RESULTS_COUNTED) {
-            break;
-          }
-          count++;
-
-          if (n.getProperties().containsKey(groupedby)) {
-            String key = (String) n.getFirstValue(groupedby);
-            int val = 1;
-            if (mapCount.containsKey(key)) {
-              val = mapCount.get(key) + 1;
-            }
-            mapCount.put(key, val);
-          }
-        }
-
+        Map<String, Long> mapCount = getMapCount((SolrQueryResponseWrapper) resultSet, groupedBy);
         write.object();
         write.key("count");
         write.array();
-        for (Entry<String, Integer> e : mapCount.entrySet()) {
+        for (Entry<String, Long> e : mapCount.entrySet()) {
           write.object();
 
           write.key("group");
@@ -231,6 +215,23 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
       LOGGER.error("Unexpected exception for query " + request.getQueryString(), e);
       response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getLocalizedMessage());
     }
+  }
 
+  @SuppressWarnings("unchecked")
+  private Map<String, Long> getMapCount(SolrQueryResponseWrapper resultSet, String groupedBy) {
+    Map<String, Long> mapCount = new HashMap<String, Long>();
+    QueryResponse solrQueryResponse = ((SolrQueryResponseWrapper) resultSet).getQueryResponse();
+    NamedList<Object> solrResponse = solrQueryResponse.getResponse();
+    NamedList<Object> groupedList = (NamedList<Object>) solrResponse.get("grouped");
+    NamedList<Object> categoryResponse = (NamedList<Object>) groupedList.get(groupedBy);
+    List<NamedList<Object>> groupsResponse = (List<NamedList<Object>>) categoryResponse.get("groups");
+    for (NamedList<Object> groupingResult : groupsResponse) {
+      final String category = (String) groupingResult.get("groupValue");
+      final SolrDocumentList documentList = (SolrDocumentList) groupingResult.get("doclist");
+      final long categoryCount = documentList.getNumFound();
+      LOGGER.debug("category = {}, count = {}", category, categoryCount);
+      mapCount.put(category, categoryCount);
+    }
+    return mapCount;
   }
 }

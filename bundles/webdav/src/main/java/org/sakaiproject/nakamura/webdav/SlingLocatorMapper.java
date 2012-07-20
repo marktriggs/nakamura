@@ -42,9 +42,9 @@ public class SlingLocatorMapper  {
         try {
             sessionHolder.set(sessionProvider.getSession(request, null, null));
         } catch (RepositoryException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage(), e);
         } catch (ServletException e) {
-            e.printStackTrace();
+            LOGGER.error(e.getMessage(), e);
         }
 
     }

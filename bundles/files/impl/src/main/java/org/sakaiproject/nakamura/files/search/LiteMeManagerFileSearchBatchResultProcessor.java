@@ -29,6 +29,7 @@ import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.io.JSONWriter;
 import org.sakaiproject.nakamura.api.files.FileUtils;
 import org.sakaiproject.nakamura.api.files.FilesConstants;
+import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
@@ -66,6 +67,8 @@ public class LiteMeManagerFileSearchBatchResultProcessor implements SolrSearchBa
 
   @Reference
   private SolrSearchServiceFactory searchServiceFactory;
+  @Reference
+  private Repository repository;
 
   public LiteMeManagerFileSearchBatchResultProcessor(SolrSearchServiceFactory searchServiceFactory) {
     this.searchServiceFactory = searchServiceFactory;
@@ -159,11 +162,14 @@ public class LiteMeManagerFileSearchBatchResultProcessor implements SolrSearchBa
       StorageClientException {
 
     final String type = (String) content.getProperty(SLING_RESOURCE_TYPE_PROPERTY);
+    write.object();
     if (FilesConstants.RT_SAKAI_LINK.equals(type)) {
-      FileUtils.writeLinkNode(content, session, write);
+      FileUtils.writeLinkNode(content, session, write, true);
     } else {
-      FileUtils.writeFileNode(content, session, write, depth);
+      FileUtils.writeFileNode(content, session, write, depth, true);
     }
+    FileUtils.writeCommentCountProperty(content, session, write, repository); 
+    write.endObject();
   }
 
 }

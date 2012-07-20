@@ -17,6 +17,7 @@
  */
 package org.sakaiproject.nakamura.memory;
 
+import com.google.common.collect.ImmutableMap;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -30,43 +31,52 @@ import org.sakaiproject.nakamura.api.memory.CacheScope;
 
 import java.util.Map;
 
-@Component(immediate=true, metatype=true)
-@Service(value=StorageCacheManager.class)
+@Component(immediate = true, metatype = true)
+@Service(value = StorageCacheManager.class)
 public class StorageCacheManagerImpl implements StorageCacheManager {
 
-  private Map<String, CacheHolder> accessControlCache;
-  private Map<String, CacheHolder> authorizableCache;
-  private Map<String, CacheHolder> contentCache;
-  
+  private Map<String, Map<String, CacheHolder>> knownCaches;
+
   @Reference
   private CacheManagerService cacheManagerService;
 
   @Activate
   public void activate(Map<String, Object> props) {
+    ImmutableMap.Builder<String, Map<String, CacheHolder>> b = ImmutableMap.builder();
     Cache<CacheHolder> accesssControlCacheCache = cacheManagerService.getCache("accessControlCache", CacheScope.CLUSTERINVALIDATED);
     Cache<CacheHolder> authorizableCacheCache = cacheManagerService.getCache("authorizableCache", CacheScope.CLUSTERINVALIDATED);
     Cache<CacheHolder> contentCacheCache = cacheManagerService.getCache("contentCache", CacheScope.CLUSTERINVALIDATED);
-    accessControlCache = new MapDeligate<String, CacheHolder>(accesssControlCacheCache);
-    authorizableCache = new MapDeligate<String, CacheHolder>(authorizableCacheCache);
-    contentCache = new MapDeligate<String, CacheHolder>(contentCacheCache);
+    Cache<CacheHolder> queryCache = cacheManagerService.getCache("queryCache", CacheScope.CLUSTERINVALIDATED);
+    b.put("ac", new MapDeligate<String, CacheHolder>(accesssControlCacheCache));
+    b.put("au", new MapDeligate<String, CacheHolder>(authorizableCacheCache));
+    b.put("cn", new MapDeligate<String, CacheHolder>(contentCacheCache));
+    b.put("sparseQueryCache", new MapDeligate<String, CacheHolder>(queryCache));
+    knownCaches = b.build();
   }
-  
+
   @Deactivate
   public void deactivate(Map<String, Object> props) {
-    
+
   }
-  
-  
+
   public Map<String, CacheHolder> getAccessControlCache() {
-    return accessControlCache;
+    return getCache("ac");
   }
 
   public Map<String, CacheHolder> getAuthorizableCache() {
-    return authorizableCache;
+    return getCache("au");
   }
 
   public Map<String, CacheHolder> getContentCache() {
-    return contentCache;
+    return getCache("cn");
+  }
+
+  public Map<String, CacheHolder> getCache(String cacheName) {
+    if (knownCaches.containsKey(cacheName)) {
+      return knownCaches.get(cacheName);
+    }
+    Cache<CacheHolder> cache = cacheManagerService.getCache(cacheName, CacheScope.CLUSTERINVALIDATED);
+    return new MapDeligate<String, CacheHolder>(cache);
   }
 
 }

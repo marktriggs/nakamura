@@ -19,6 +19,8 @@ package org.sakaiproject.nakamura.util;
 
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.wrappers.SlingHttpServletResponseWrapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -32,6 +34,8 @@ import java.util.Hashtable;
 import javax.servlet.ServletOutputStream;
 
 public class ResponseWrapper extends SlingHttpServletResponseWrapper {
+  private static final Logger LOGGER = LoggerFactory.getLogger(ResponseWrapper.class);
+
   ByteArrayOutputStream boas = new ByteArrayOutputStream();
   ServletOutputStream servletOutputStream = new ServletOutputStream() {
     @Override
@@ -55,8 +59,7 @@ public class ResponseWrapper extends SlingHttpServletResponseWrapper {
     try {
       osw = new OutputStreamWriter(boas, "UTF-8");
     } catch (UnsupportedEncodingException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
+      LOGGER.warn(e.getMessage());
     }
     pw = new PrintWriter(osw);
   }

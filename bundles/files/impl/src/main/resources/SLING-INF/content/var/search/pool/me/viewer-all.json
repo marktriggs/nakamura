@@ -10,6 +10,7 @@
   },
   "sling:resourceType": "sakai/solr-search",
   "sakai:propertyprovider" : ["PooledContentSparse", "MimeMatch"],
+  "sakai:batchresultprocessor": "PooledContentFiles",
   "sakai:title": "Pooled Content - Me - Viewer - All",
   "sakai:shortDescription": "Returns all the files for which the current user is a viewer.",
   "sakai:parameters" : [

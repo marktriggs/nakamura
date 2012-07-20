@@ -157,8 +157,6 @@ public class RSSProxyPostProcessor implements ProxyPostProcessor {
     return "rss";
   }
 
-  public static final Logger log = LoggerFactory.getLogger(RSSProxyPostProcessor.class);
-
   public void process(Map<String, Object> templateParams,
       SlingHttpServletResponse response, ProxyResponse proxyResponse) throws IOException {
     if ( proxyResponse.getResultCode() == HttpServletResponse.SC_PRECONDITION_FAILED ) {
@@ -290,7 +288,7 @@ public class RSSProxyPostProcessor implements ProxyPostProcessor {
         if (writer != null) writer.close();
       } catch (XMLStreamException e) {
         // Not much we can do?
-        e.printStackTrace();
+        logger.info(e.getMessage());
       }
     }
 

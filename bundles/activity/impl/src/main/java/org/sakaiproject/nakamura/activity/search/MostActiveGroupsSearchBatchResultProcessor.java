@@ -97,6 +97,10 @@ public class MostActiveGroupsSearchBatchResultProcessor implements
             // or if the group path simply doesn't exist
             continue;
           }
+          if (resourceContent == null) {
+            LOG.info("null profile found for group " + resourceId + ", group has been excluded from search results");
+            continue;
+          }
 
           // KERN-2125 determine if group should be excluded from search results
           Authorizable authorizable = null;

@@ -1,0 +1,19 @@
+{
+  "sakai:schemaversion": "2",
+  "sakai:permissions": "public",
+  "_mimeType": "x-sakai/document",
+  "sakai:showcomments": "true",
+  "sakai:allowcomments": "true",
+  "structure0": "{\"page1\":{\"_ref\":\"id4962581\",\"_order\":0,\"_title\":\"Sakai Document\",\"main\":{\"_ref\":\"id4962581\",\"_order\":0,\"_title\":\"Sakai Document\"}}}",
+  "id4962581": {
+    "safeToEdit": true,
+    "editor": {
+      "sling:resourceType": "sakai/user-profile"
+    },
+    "counts": {
+      "countLastUpdate": "1333640998352",
+      "contentCount": "2",
+      "contactsCount": "0"
+    }
+  }
+}

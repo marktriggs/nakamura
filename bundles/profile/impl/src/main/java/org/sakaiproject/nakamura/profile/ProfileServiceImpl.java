@@ -196,12 +196,14 @@ public class ProfileServiceImpl implements ProfileService {
    */
   public ValueMap getResolvedProfileMap(Authorizable authorizable, Content profileContent, Session jcrSession) throws RepositoryException {
     // Get the data from our external providers.
-    Map<String, List<ProviderSettings>> providersMap = scanForProviders(profileContent, jcrSession);
-    Map<Content, Future<Map<String, Object>>> providedNodeData = new HashMap<Content, Future<Map<String, Object>>>();
-    for (Entry<String, List<ProviderSettings>> e : providersMap.entrySet()) {
-      ProfileProvider pp = providers.get(e.getKey());
-      if (pp != null) {
-        providedNodeData.putAll(pp.getProvidedMap(e.getValue()));
+    Map<String, Future<Map<String, Object>>> providedNodeData = new HashMap<String, Future<Map<String, Object>>>();
+    if (shouldScanForProviders) {
+      Map<String, List<ProviderSettings>> providersMap = scanForProviders(profileContent, jcrSession);
+      for (Entry<String, List<ProviderSettings>> e : providersMap.entrySet()) {
+        ProfileProvider pp = providers.get(e.getKey());
+        if (pp != null) {
+          providedNodeData.putAll(pp.getProvidedMap(e.getValue()));
+        }
       }
     }
     try {
@@ -237,13 +239,12 @@ public class ProfileServiceImpl implements ProfileService {
    * @throws InterruptedException
    * @throws ExecutionException
    */
-  protected void handleNode(Content profileContent, Map<Content, Future<Map<String, Object>>> baseMap,
+  protected void handleNode(Content profileContent, Map<String, Future<Map<String, Object>>> baseMap,
       Map<String, Object> map) throws RepositoryException, InterruptedException,
       ExecutionException {
-    // If our map contains this node, that means one of the provides had some information
-    // for it.
-    // We will use the provider.
-    if (baseMap.containsKey(profileContent.getPath())) {
+    // If our map contains this node, that means one of the providers had some information
+    // for it. We will use this provider.
+    if (!baseMap.isEmpty() && baseMap.containsKey(profileContent.getPath())) {
       map.putAll(baseMap.get(profileContent.getPath()).get());
     } else {
 

@@ -1,0 +1,188 @@
+{
+  "sakai:schemaversion": "2",
+  "sakai:permissions": "public",
+  "_mimeType": "x-sakai/document",
+  "sakai:showcomments": "true",
+  "sakai:allowcomments": "true",
+  "sling:resourceType": "sakai/pooled-content",
+  "sakai:pool-content-created-for": "mrvisser",
+  "structure0": "{\"page1\":{\"_ref\":\"id5063565\",\"_order\":0,\"_title\":\"Test Document\",\"main\":{\"_ref\":\"id5063565\",\"_order\":0,\"_title\":\"Test Document\"}}}",
+  "sakai:pooled-content-file-name": "Test Document",
+  "sakai:copyright": "creativecommons",
+  "sakai:forceupdate": "true",
+  "id5063565": {
+    "safeToEdit": true,
+    "version": "{\"safeToEdit\":true,\"id2207414\":{\"basiclti\":{\"width_unit\":\"%\",\"width\":\"100\",\"debug\":true,\"sling:resourceType\":\"sakai/basiclti\",\"release_names\":true,\"frame_height\":\"200\",\"release_email\":true,\"ltiurl\":\"http://www.google.ca\",\"border_color\":\"ccc\",\"release_principal_name\":true,\"border_size\":\"0\"}},\"id2529654\":{\"comments\":{\"sakai:notificationaddress\":\"mrvisser\",\"sakai:marker\":\"id2529654\",\"sakai:allowanonymous\":false,\"sakai:type\":\"comment\",\"direction\":\"comments_FirstUp\",\"perPage\":10,\"sling:resourceType\":\"sakai/settings\",\"comments\":\"\",\"message\":{\"sling:resourceType\":\"sakai/messagestore\"}}},\"id9622015\":{\"discussion\":{\"whocanaddtopic\":\"anyone\",\"whocanreply\":\"anyone\",\"marker\":\"id9622015\",\"message\":{\"sling:resourceType\":\"sakai/messagestore\"}}},\"rows\":[{\"id\":\"id38719502\",\"columns\":[{\"width\":1,\"elements\":[{\"id\":\"id9622015\",\"type\":\"discussion\"},{\"id\":\"id2529654\",\"type\":\"comments\"},{\"id\":\"id2207414\",\"type\":\"basiclti\"}]}]}],\"editor\":{\"sling:resourceType\":\"sakai/user-profile\",\"hash\":\"mrvisser\",\"rep:userId\":\"mrvisser\",\"userid\":\"mrvisser\",\"sakai:excludeSearch\":false,\"homePath\":\"/~mrvisser\",\"aboutme\":{\"init\":\"true\"},\"basic\":{\"access\":\"everybody\",\"elements\":{\"email\":{\"value\":\"mrvisser@gmail.com\"},\"lastName\":{\"value\":\"Visser\"},\"firstName\":{\"value\":\"Branden\"}}},\"publications\":{\"init\":\"true\"},\"counts\":{\"countLastUpdate\":1333896447661,\"contentCount\":3,\"contactsCount\":0,\"membershipsCount\":3}}}",
+    "editing": {
+      "time": 1333910900670,
+      "sakai:modifierid": "id9918532"
+    },
+    "editor": {
+      "sling:resourceType": "sakai/user-profile",
+      "hash": "mrvisser",
+      "rep:userId": "mrvisser",
+      "userid": "mrvisser",
+      "sakai:excludeSearch": false,
+      "homePath": "/~mrvisser",
+      "counts": {
+        "countLastUpdate": 1333896447661,
+        "contentCount": 3,
+        "contactsCount": 0,
+        "membershipsCount": 3
+      },
+      "publications": {
+        "init": "true"
+      },
+      "basic": {
+        "access": "everybody",
+        "elements": {
+          "lastName": {
+            "value": "Visser"
+          },
+          "firstName": {
+            "value": "Branden"
+          },
+          "email": {
+            "value": "mrvisser@gmail.com"
+          }
+        }
+      },
+      "aboutme": {
+        "init": "true"
+      }
+    },
+    "rows": {
+        "id": "id38719502",
+        "columns": {
+          "__array__0__": {
+            "width": 1,
+            "elements": {
+              "__array__1__": {
+                "id": "id2529654",
+                "type": "comments"
+              },
+              "__array__2__": {
+                "id": "id2207414",
+                "type": "basiclti"
+              },
+              "__array__0__": {
+                "id": "id9622015",
+                "type": "discussion"
+              }
+            }
+          }
+        }
+      }
+    },
+    "id2207414": {
+      "basiclti": {
+        "width_unit": "%",
+        "width": "100",
+        "debug": true,
+        "sling:resourceType": "sakai/basiclti",
+        "release_names": true,
+        "frame_height": "200",
+        "ltiurl": "http://www.google.ca",
+        "release_email": true,
+        "border_color": "ccc",
+        "release_principal_name": true,
+        "border_size": "0",
+        "ltiKeys": {
+          "ltikey": "key",
+          "ltisecret": "secret"
+        }
+      }
+    },
+    "id2529654": {
+      "comments": {
+        "sakai:notificationaddress": "mrvisser",
+        "sakai:marker": "id2529654",
+        "sakai:allowanonymous": false,
+        "sakai:type": "comment",
+        "direction": "comments_FirstUp",
+        "perPage": 10,
+        "sling:resourceType": "sakai/settings",
+        "comments": "",
+        "message": {
+          "sling:resourceType": "sakai/messagestore",
+          "inbox": {
+            "c2f752c635feca58abb582fb2113eb4342d50ffe": {
+              "sakai:marker": "id2529654",
+              "sakai:created": "2012-04-08T15:51:45+00:00",
+              "sakai:type": "comment",
+              "sakai:to": "internal:/p/kSaC3Fu0U4/id5063565/id2529654/comments/message",
+              "sling:resourceType": "sakai/message",
+              "sakai:messagestore": "kSaC3Fu0U4/id5063565/id2529654/comments/message/",
+              "sakai:sendstate": "notified",
+              "sakai:body": "Great site, will read again.",
+              "sakai:subject": "Comment",
+              "sling:resourceSuperType": "sparse/Content",
+              "sakai:messagebox": "inbox",
+              "sakai:read": false,
+              "sakai:id": "c2f752c635feca58abb582fb2113eb4342d50ffe",
+              "sakai:from": "admin"
+            }
+          }
+        }
+      }
+    },
+    "id9622015": {
+      "discussion": {
+        "whocanaddtopic": "anyone",
+        "whocanreply": "anyone",
+        "marker": "id9622015",
+        "message": {
+          "sling:resourceType": "sakai/messagestore",
+          "inbox": {
+            "62fe3460b5d2bfea89f81d5128f7641b3419cd86": {
+              "sakai:marker": "id9622015",
+              "sakai:created": "2012-04-08T15:51:26+00:00",
+              "sakai:type": "discussion",
+              "sakai:to": "/p/kSaC3Fu0U4/id5063565/id9622015/discussion/message",
+              "sakai:messagestore": "kSaC3Fu0U4/id5063565/id9622015/discussion/message/",
+              "sling:resourceType": "sakai/message",
+              "sakai:initialpost": "true",
+              "sakai:sendstate": "notified",
+              "sakai:body": "This is a topic",
+              "sakai:subject": "Test Topic",
+              "sling:resourceSuperType": "sparse/Content",
+              "sakai:read": true,
+              "sakai:messagebox": "inbox",
+              "sakai:id": "62fe3460b5d2bfea89f81d5128f7641b3419cd86",
+              "sakai:from": "admin",
+              "sakai:writeto": "/p/kSaC3Fu0U4/id5063565/id9622015/discussion/message"
+            },
+            "567ce395156ee0f6582b31abce5e8bbdfc7667ee": {
+              "sakai:deleted": "false",
+              "sakai:marker": "id9622015",
+              "sakai:created": "2012-04-08T15:51:36+00:00",
+              "sakai:replyon": "62fe3460b5d2bfea89f81d5128f7641b3419cd86",
+              "sakai:type": "discussion",
+              "sakai:to": "/p/kSaC3Fu0U4/id5063565/id9622015/discussion/message",
+              "sakai:messagestore": "kSaC3Fu0U4/id5063565/id9622015/discussion/message/",
+              "sling:resourceType": "sakai/message",
+              "sakai:sendstate": "notified",
+              "sakai:body": "Reply!",
+              "sling:resourceSuperType": "sparse/Content",
+              "sakai:id": "567ce395156ee0f6582b31abce5e8bbdfc7667ee",
+              "sakai:messagebox": "inbox",
+              "sakai:read": true,
+              "sakai:from": "admin"
+            }
+          }
+        }
+      }
+    }
+  },
+  "activityFeed": {
+    "2012-04-08-14-4bbd007e010693741cafbb42520b7927016dbe72": {
+      "sakai:activity-source": "kSaC3Fu0U4",
+      "sakai:activity-type": "pooled content",
+      "sakai:activity-actor": "mrvisser",
+      "sling:resourceType": "sakai/activity",
+      "sakai:activity-appid": "Content",
+      "sakai:activity-templateid": "default",
+      "sakai:activityMessage": "UPDATED_CONTENT"
+    }
+  }
+}
