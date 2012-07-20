@@ -116,7 +116,7 @@
     </dependency>
     <dependency>
       <groupId>org.sakaiproject.nakamura</groupId>
-      <artifactId>org.sakaiproject.nakamura.user</artifactId>
+      <artifactId>org.sakaiproject.nakamura.user.api</artifactId>
       <version>1.3.0</version>
     </dependency>
     <dependency>
