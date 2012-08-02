@@ -37,6 +37,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
@@ -83,7 +84,7 @@ public class BasicLtiWidgetCopyCleanerTest {
     String to = namespace("testNothingToClean/to");
     AbstractBasicLtiCleaner cleaner = createCleaner();
     
-    List<Modification> modifications = cleaner.clean(from, to, createContentManager(cleaner.getRepository(), "test"));
+    List<Modification> modifications = cleaner.clean(from, to, createSession(cleaner.getRepository(), "test"));
     Assert.assertNotNull(modifications);
     Assert.assertEquals(0, modifications.size());
   }
@@ -139,14 +140,20 @@ public class BasicLtiWidgetCopyCleanerTest {
     runCopyOperation(from, to, testSession);
     
     // fourth, clean it up as the unprivileged user
-    cleaner.clean(ltiPathFrom, ltiPathTo, testContentManager);
+    cleaner.clean(ltiPathFrom, ltiPathTo, testSession);
     
-    // finally, verify that the keys were copied and are in tact
+    // fifth, verify that the keys were copied and are in tact
     String ltiKeysTo = StorageClientUtils.newPath(to, ltiKeysPathRelative);
     Content ltiKeys = adminContentManager.get(ltiKeysTo);
     Assert.assertNotNull(ltiKeys);
     Assert.assertEquals("key", ltiKeys.getProperty("ltikey"));
     Assert.assertEquals("secret", ltiKeys.getProperty("ltisecret"));
+    
+    // sixth, verify that the copied keys are still locked down to admin
+    Authorizable testAuth = testSession.getAuthorizableManager().getUser();
+    boolean lockedDown = !adminSession.getAccessControlManager().can(testAuth, Security.ZONE_CONTENT,
+        ltiKeysTo, Permissions.CAN_READ);
+    Assert.assertTrue("Expected the ltiKeys to be locked down.", lockedDown);
   }
   
   /**
@@ -214,15 +221,15 @@ public class BasicLtiWidgetCopyCleanerTest {
     return copyOperation;
   }
   
-  private ContentManager createContentManager(Repository repository, String userId) throws ClientPoolException,
-      StorageClientException, AccessDeniedException, ClassNotFoundException, IOException {
+  private Session createSession(Repository repository, String userId) throws ClientPoolException,
+      StorageClientException, AccessDeniedException {
     if (userId == null) {
-      return repository.loginAdministrative().getContentManager();
+      return repository.loginAdministrative();
     } else {
-      return repository.loginAdministrative(userId).getContentManager();
+      return repository.loginAdministrative(userId);
     }
   }
-  
+
   protected String namespace(String path) {
     return String.format("%s/%s", NAMESPACE, path);
   }

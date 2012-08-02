@@ -40,7 +40,10 @@ public interface ActivityConstants {
    * The property name for the source of the activity.
    */
   public static final String PARAM_SOURCE = "sakai:activity-source";
-
+  /**
+   * The routes to which this activity is delivered.
+   */
+  public static final String PARAM_ROUTES = "sakai:routes";
 
   // Node names
 

@@ -20,6 +20,7 @@ package org.sakaiproject.nakamura.connections;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -27,7 +28,6 @@ import org.junit.Test;
 import org.sakaiproject.nakamura.api.connections.ConnectionConstants;
 import org.sakaiproject.nakamura.api.connections.ConnectionException;
 import org.sakaiproject.nakamura.api.connections.ConnectionState;
-import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
@@ -38,6 +38,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
+import org.sakaiproject.nakamura.api.user.AuthorizableCountChanger;
 import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.lite.RepositoryImpl;
@@ -54,17 +55,37 @@ public class ConnectionManagerImplTest {
 
   private ConnectionManagerImpl connectionManager;
   private RepositoryImpl repository;
+  private Session session;
+  private Authorizable bob;
+  private Authorizable alice;
 
   @Before
-  public void setUp() throws ClientPoolException, StorageClientException, AccessDeniedException, ClassNotFoundException, IOException {
+  public void setUp() throws StorageClientException, AccessDeniedException, ClassNotFoundException, IOException {
     BaseMemoryRepository baseMemoryRepository = new BaseMemoryRepository();
     repository = baseMemoryRepository.getRepository();
     connectionManager = new ConnectionManagerImpl();
     connectionManager.repository = repository;
+    connectionManager.authorizableCountChanger = mock(AuthorizableCountChanger.class);
+
+    session = repository.loginAdministrative();
+    session.getAuthorizableManager().createUser("bob", "bob", "test", null);
+    session.getAuthorizableManager().createUser("alice", "alice", "test", null);
+    session.getAuthorizableManager().createGroup("g-contacts-bob", "g-contacts-bob", null);
+    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:alice",new AclModification[]{
+        new AclModification(AclModification.grantKey("alice"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
+    });
+    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:bob",new AclModification[]{
+        new AclModification(AclModification.grantKey("bob"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
+    });
+
+    bob = session.getAuthorizableManager().findAuthorizable("bob");
+    alice = session.getAuthorizableManager().findAuthorizable("alice");
+
+    session.logout();
   }
 
   @Test
-  public void testAddArbitraryProperties() throws ClientPoolException, StorageClientException, AccessDeniedException {
+  public void testAddArbitraryProperties() throws StorageClientException, AccessDeniedException {
     Session session = repository.loginAdministrative();
     session.getContentManager().update(new Content("/path/to/connection/node", null));  
     Content node = session.getContentManager().get("/path/to/connection/node");
@@ -82,7 +103,7 @@ public class ConnectionManagerImplTest {
   }
 
   @Test
-  public void testHandleInvitation() throws ClientPoolException, StorageClientException, AccessDeniedException  {
+  public void testHandleInvitation() throws StorageClientException, AccessDeniedException  {
     Session session = repository.loginAdministrative();
     ContentManager contentManager = session.getContentManager();
     contentManager.update(new Content("a:alice/contacts/bob", null));  
@@ -162,13 +183,10 @@ public class ConnectionManagerImplTest {
 
   @Test
   public void testCheckValidUserIdNonExisting() throws AccessDeniedException, StorageClientException  {
-    Session session = repository.loginAdministrative();
-    session.getAuthorizableManager().createUser("bob", "bob", "test", null);
-    session.logout();
     session = repository.loginAdministrative("bob");
     
     try {
-      connectionManager.checkValidUserId(session, "alice");
+      connectionManager.checkValidUserId(session, "asdf");
       fail("This should've thrown a ConnectionException.");
     } catch (ConnectionException e) {
       assertEquals(404, e.getCode());
@@ -176,18 +194,14 @@ public class ConnectionManagerImplTest {
   }
 
   @Test
-  public void testCheckValidUserId() throws ConnectionException, ClientPoolException, StorageClientException, AccessDeniedException {
-    Session session = repository.loginAdministrative();
-    session.getAuthorizableManager().createUser("bob", "bob", "test", null);
-    session.getAuthorizableManager().createUser("alice", "alice", "test", null);
-    session.logout();
+  public void testCheckValidUserId() throws ConnectionException, StorageClientException, AccessDeniedException {
     session = repository.loginAdministrative("bob");
     Authorizable actual = connectionManager.checkValidUserId(session, "alice");
     assertEquals("alice", actual.getId());
   }
 
   @Test
-  public void testGetConnectionState() throws ConnectionException, ClientPoolException, StorageClientException, AccessDeniedException {
+  public void testGetConnectionState() throws ConnectionException, StorageClientException, AccessDeniedException {
     // Passing in null
     try {
       final ConnectionState state = connectionManager.getConnectionState(null);
@@ -216,45 +230,33 @@ public class ConnectionManagerImplTest {
   }
 
   @Test
-  public void testDeepGetCreateNodeExisting() throws ClientPoolException, StorageClientException, AccessDeniedException {
-    Session session = repository.loginAdministrative();
-    session.getAuthorizableManager().createUser("bob", "bob", "test", null);
-    session.getAuthorizableManager().createUser("alice", "alice", "test", null);
-    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:alice",new AclModification[]{
-        new AclModification(AclModification.grantKey("alice"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
-    });
-    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:bob",new AclModification[]{
-        new AclModification(AclModification.grantKey("bob"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
-    });
-    session.logout();
+  public void testDeepGetCreateNodeExisting() throws StorageClientException, AccessDeniedException {
     session = repository.loginAdministrative("bob");
-    Authorizable from = session.getAuthorizableManager().findAuthorizable("bob");
-    Authorizable to = session.getAuthorizableManager().findAuthorizable("alice");
-    
-    Content result = connectionManager.getOrCreateConnectionNode(session, from, to);
+    Content result = connectionManager.getOrCreateConnectionNode(session, bob, alice);
     assertEquals("a:bob/contacts/alice", result.getPath());
   }
 
   @Test
   public void testDeepGetCreateNodeExistingBase() throws AccessDeniedException, StorageClientException  {
-    Session session = repository.loginAdministrative();
-    session.getAuthorizableManager().createUser("bob", "bob", "test", null);
-    session.getAuthorizableManager().createUser("alice", "alice", "test", null);
-    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:alice",new AclModification[]{
-        new AclModification(AclModification.grantKey("alice"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
-    });
-    session.getAccessControlManager().setAcl(Security.ZONE_CONTENT, "a:bob",new AclModification[]{
-        new AclModification(AclModification.grantKey("bob"), Permissions.CAN_MANAGE.getPermission(), Operation.OP_REPLACE)
-    });
-    session.logout();
     session = repository.loginAdministrative("bob");
-    Authorizable from = session.getAuthorizableManager().findAuthorizable("bob");
-    Authorizable to = session.getAuthorizableManager().findAuthorizable("alice");
-
-
-    Content result = connectionManager.getOrCreateConnectionNode(session, from, to);
+    Content result = connectionManager.getOrCreateConnectionNode(session, bob, alice);
     assertEquals("a:bob/contacts/alice", result.getPath());
     assertEquals(ConnectionConstants.SAKAI_CONTACT_RT, result.getProperty("sling:resourceType"));
     assertEquals("a:alice/public/authprofile", result.getProperty("reference"));
   }
+
+  @Test
+  public void testRemoveUserFromGroup() throws StorageClientException, AccessDeniedException {
+    session = repository.loginAdministrative();
+    connectionManager.removeUserFromGroup(bob, alice, session);
+    verify(connectionManager.authorizableCountChanger).notify(UserConstants.CONTACTS_PROP, "bob");
+  }
+
+  @Test
+  public void testAddUserToGroup() throws StorageClientException, AccessDeniedException {
+    session = repository.loginAdministrative();
+    connectionManager.addUserToGroup(bob, alice, session);
+    verify(connectionManager.authorizableCountChanger).notify(UserConstants.CONTACTS_PROP, "bob");
+  }
+
 }

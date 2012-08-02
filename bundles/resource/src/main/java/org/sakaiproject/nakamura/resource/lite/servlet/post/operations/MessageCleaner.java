@@ -93,11 +93,12 @@ public class MessageCleaner implements CopyCleaner, MoveCleaner {
   
   /**
    * {@inheritDoc}
-   * @see org.sakaiproject.nakamura.api.resource.CopyCleaner#clean(java.lang.String, java.lang.String, org.sakaiproject.nakamura.api.lite.content.ContentManager)
+   * @see org.sakaiproject.nakamura.api.resource.CopyCleaner#clean(java.lang.String, java.lang.String, org.sakaiproject.nakamura.api.lite.Session)
    */
   @Override
-  public List<Modification> clean(String fromPath, String toPath, ContentManager cm)
+  public List<Modification> clean(String fromPath, String toPath, Session session)
       throws StorageClientException, AccessDeniedException {
+    ContentManager cm = session.getContentManager();
     Content toContent = cm.get(toPath);
     if (toContent != null && isMessage(toContent)) {
       LOGGER.debug("Cleaning a copy of message content from '{}' to '{}'", fromPath, toPath);

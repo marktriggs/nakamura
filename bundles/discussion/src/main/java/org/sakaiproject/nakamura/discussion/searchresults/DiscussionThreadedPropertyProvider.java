@@ -47,13 +47,15 @@ public class DiscussionThreadedPropertyProvider implements SolrSearchPropertyPro
    */
   public void loadUserProperties(SlingHttpServletRequest request,
       Map<String, String> propertiesMap) {
-    String path = request.getParameter("path");
-    String homePath = PathUtils.toUserContentPath(path) + "/";
-    // we have to use a path hash here because a discussion thread has a hashed
-    // messagestore value from LiteDiscussionMessageTransport@146
-    String pathHash = StorageClientUtils.insecureHash(homePath);
-    propertiesMap.put(MessageConstants.SEARCH_PROP_MESSAGEROOT, "(" + pathHash + " OR "
-        + ClientUtils.escapeQueryChars(homePath) + ")");
+    final String path = request.getParameter("path");
+    if (path != null) {
+      final String homePath = PathUtils.toUserContentPath(path) + "/";
+      // we have to use a path hash here because a discussion thread has a hashed
+      // messagestore value from LiteDiscussionMessageTransport@146
+      final String pathHash = StorageClientUtils.insecureHash(homePath);
+      propertiesMap.put(MessageConstants.SEARCH_PROP_MESSAGEROOT, "(" + pathHash + " OR "
+          + ClientUtils.escapeQueryChars(homePath) + ")");
+    }
   }
 
 }

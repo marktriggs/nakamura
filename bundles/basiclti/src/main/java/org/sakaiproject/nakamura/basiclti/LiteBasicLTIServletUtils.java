@@ -21,7 +21,6 @@ import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.LTI_KE
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.LTI_SECRET;
 
 import org.sakaiproject.nakamura.api.lite.Session;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permission;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
@@ -32,6 +31,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class LiteBasicLTIServletUtils {
+  private static final String UX_TMP_STR = "tmp_";
+
   /**
    * The keys that must be specially secured from normal Sling operation.
    */
@@ -60,10 +61,9 @@ public class LiteBasicLTIServletUtils {
    * Helper method to return a Set of Privileges that a normal user <i>should not</i> have
    * on a sensitive Node.
    * 
-   * @param acm
    * @return
    */
-  protected static Set<Permission> getInvalidUserPrivileges(final AccessControlManager acm) {
+  protected static Set<Permission> getInvalidUserPrivileges() {
     Set<Permission> invalidUserPrivileges = new HashSet<Permission>(10);
     invalidUserPrivileges.add(Permissions.ALL);
     invalidUserPrivileges.add(Permissions.CAN_ANYTHING);
@@ -101,4 +101,32 @@ public class LiteBasicLTIServletUtils {
     }
   }
 
+  /**
+   * Performs any cleanup of node's path to account for cases where path includes a "tmp_"
+   * during authoring/preview within the UX. See: SAKIII-5890, KERN-2982.
+   * 
+   * @param node
+   * @return
+   */
+  protected static String getNodePath(final Content node) {
+    return getNodePath(node.getPath());
+  }
+
+  /**
+   * Performs any cleanup of node's path to account for cases where path includes a "tmp_"
+   * during authoring/preview within the UX. See: SAKIII-5890, KERN-2982.
+   * 
+   * @param nodePath
+   * @return
+   */
+  protected static String getNodePath(final String nodePath) {
+    String path = nodePath;
+    // e.g. mvw0Gmalaa/id1987761/id3490751/basiclti
+    if (path != null && path.contains(UX_TMP_STR)) {
+      // UX is in authoring/preview mode SAKIII-5890
+      // e.g. mvw0Gmalaa/tmp_id1987761/id3490751/basiclti
+      path = path.replace(UX_TMP_STR, "");
+    }
+    return path;
+  }
 }

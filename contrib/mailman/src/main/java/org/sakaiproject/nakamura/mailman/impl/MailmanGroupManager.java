@@ -64,12 +64,12 @@ public class MailmanGroupManager implements EventHandler, ManagedService {
     @Property(value = "password")
     private static final String LIST_MANAGEMENT_PASSWORD = "mailman.listmanagement.password";
     @Reference
-    private MailmanManager mailmanManager;
+    protected MailmanManager mailmanManager;
     @Reference
-    private Repository repository;
+    protected Repository repository;
     private Session session; // fetched from the repository
     private AuthorizableManager authorizableManager = null; // fetchs from the session
-    private String listManagementPassword;
+    protected String listManagementPassword;
 
     public MailmanGroupManager() {
     }

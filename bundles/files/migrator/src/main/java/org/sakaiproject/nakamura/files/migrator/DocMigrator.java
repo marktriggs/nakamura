@@ -19,6 +19,7 @@ package org.sakaiproject.nakamura.files.migrator;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
+import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
@@ -33,6 +34,12 @@ import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
+import org.sakaiproject.nakamura.api.lite.authorizable.Group;
+import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.resource.lite.LiteJsonImporter;
@@ -43,6 +50,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.StringWriter;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -82,7 +91,7 @@ public class DocMigrator implements FileMigrationService {
     try {
       return !(content == null || isNotSakaiDoc(content) || schemaVersionIsCurrent(content) || contentHasUpToDateStructure(content));
     } catch (SakaiDocMigrationException e) {
-      LOGGER.error("Could not determine requiresMigration with content "+content.getPath(), e);
+      LOGGER.error("Could not determine requiresMigration with content {}", content.getPath());
       throw new RuntimeException("Could not determine requiresMigration with content " + content.getPath());
     }
   }
@@ -106,6 +115,9 @@ public class DocMigrator implements FileMigrationService {
       String key = keysIterator.next();
       if (!key.startsWith("_")) {
         JSONObject structureItem = subtree.getJSONObject(key);
+        if (!structureItem.has("_ref") || StringUtils.isBlank(structureItem.getString("_ref"))) {
+          continue;
+        }
         String ref = structureItem.getString("_ref");
         if (!contentManager.exists(originalStructure.getPath() + "/" + ref + "/rows")) {
           return true;
@@ -154,16 +166,30 @@ public class DocMigrator implements FileMigrationService {
     ExtendedJSONWriter stringJsonWriter = new ExtendedJSONWriter(stringWriter);
     Session adminSession = null;
     try {
-      ExtendedJSONWriter.writeContentTreeToWriter(stringJsonWriter, content, false, -1);
       adminSession = repository.loginAdministrative();
-      JSONObject newPageStructure = createNewPageStructure(new JSONObject(
-          getStructure0(content)), new JSONObject(stringWriter.toString()));
+      ContentManager adminContentManager = adminSession.getContentManager();
+      
+      // pull the content JSON using an admin session
+      Content adminContent = adminContentManager.get(content.getPath());
+      ExtendedJSONWriter.writeContentTreeToWriter(stringJsonWriter, adminContent, false, -1);
+      JSONObject newPageStructure = createNewPageStructure(new JSONObject(getStructure0(adminContent)), new JSONObject(stringWriter.toString()));
 
       JSONObject convertedStructure = (JSONObject) convertArraysToObjects(newPageStructure);
       validateStructure(convertedStructure);
+      
       LOGGER.debug("Generated new page structure. Saving content {}", content.getPath());
       LiteJsonImporter liteJsonImporter = new LiteJsonImporter();
-      liteJsonImporter.importContent(adminSession.getContentManager(), convertedStructure, content.getPath(), true, true, false, true, adminSession.getAccessControlManager(), Boolean.FALSE);
+      liteJsonImporter.importContent(adminContentManager, convertedStructure, content.getPath(), true, true, false, true, adminSession.getAccessControlManager(), Boolean.FALSE);
+      
+      // lock down basiclti widget ltiKeys
+      List<Content> basicLtiWidgets = new LinkedList<Content>();
+      collectResourcesOfType(adminContent, "sakai/basiclti", basicLtiWidgets);
+      for (Content basicLtiWidget : basicLtiWidgets) {
+        String ltiKeysPath = StorageClientUtils.newPath(basicLtiWidget.getPath(), "ltiKeys");
+        if (adminContentManager.exists(ltiKeysPath)) {
+          accessControlSensitiveNode(ltiKeysPath, adminSession);
+        }
+      }
     } catch (Exception e) {
       LOGGER.error(e.getMessage());
       throw new RuntimeException("Error while migrating " + content.getPath());
@@ -290,4 +316,33 @@ public class DocMigrator implements FileMigrationService {
     LOGGER.debug("new page structure passes validation.");
   }
 
+  private void collectResourcesOfType(Content content, String resourceType, List<Content> resources) {
+    if (resourceType.equals(content.getProperty(Content.SLING_RESOURCE_TYPE_FIELD))) {
+      resources.add(content);
+    }
+    for (Content child : content.listChildren()) {
+      collectResourcesOfType(child, resourceType, resources);
+    }
+  }
+  
+  /**
+   * Apply the necessary access control entries so that only admin users can read/write
+   * the sensitive node.
+   * 
+   * @param sensitiveNodePath
+   * @param adminSession
+   * @throws StorageClientException
+   * @throws AccessDeniedException
+   */
+  private void accessControlSensitiveNode(final String sensitiveNodePath,
+      final Session adminSession) throws StorageClientException, AccessDeniedException {
+    adminSession.getAccessControlManager().setAcl(
+        Security.ZONE_CONTENT,
+        sensitiveNodePath,
+        new AclModification[] {
+            new AclModification(AclModification.denyKey(User.ANON_USER), Permissions.ALL
+                .getPermission(), Operation.OP_REPLACE),
+            new AclModification(AclModification.denyKey(Group.EVERYONE), Permissions.ALL
+                .getPermission(), Operation.OP_REPLACE) });
+  }
 }

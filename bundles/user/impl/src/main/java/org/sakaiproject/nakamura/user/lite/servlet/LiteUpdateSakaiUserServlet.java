@@ -41,6 +41,7 @@ import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.resource.RequestProperty;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.user.lite.resource.LiteAuthorizableResourceProvider;
 
 import java.util.List;
@@ -163,6 +164,9 @@ public class LiteUpdateSakaiUserServlet extends LiteAbstractUserPostServlet {
         writeContent(session, authorizable, reqProperties, changes, toSave);
         
         saveAll(session, toSave);
+
+        responseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, authorizable.getId());
+
 
     }
 }

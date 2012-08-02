@@ -21,6 +21,7 @@ import static org.sakaiproject.nakamura.api.profile.ProfileConstants.USER_PROFIL
 import static org.sakaiproject.nakamura.api.profile.ProfileConstants.GROUP_PROFILE_RT;
 import static org.sakaiproject.nakamura.api.user.UserConstants.GROUP_DESCRIPTION_PROPERTY;
 import static org.sakaiproject.nakamura.api.user.UserConstants.GROUP_TITLE_PROPERTY;
+import static org.sakaiproject.nakamura.api.user.UserConstants.USER_RESPONSE_CACHE;
 
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
@@ -36,6 +37,7 @@ import org.apache.sling.api.wrappers.ValueMapDecorator;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.JSONObject;
 import org.apache.sling.commons.osgi.PropertiesUtil;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager;
@@ -90,6 +92,9 @@ public class ProfileServiceImpl implements ProfileService {
 
   @Reference
   private BasicUserInfoService basicUserInfoService;
+
+  @Reference
+  private DynamicContentResponseCache responseCache;
 
   @Activate @Modified
   protected void activate(Map<?, ?> props) {
@@ -340,6 +345,7 @@ public class ProfileServiceImpl implements ProfileService {
   public void update(org.sakaiproject.nakamura.api.lite.Session session, String profilePath,
       JSONObject json, boolean replace, boolean replaceProperties, boolean removeTree)
       throws StorageClientException, AccessDeniedException, JSONException {
+    responseCache.invalidate(USER_RESPONSE_CACHE, session.getUserId());
     String objectName = PathUtils.lastElement(profilePath);
     ContentManager contentManager = session.getContentManager();
     String authorizableId = PathUtils.getAuthorizableId(profilePath);

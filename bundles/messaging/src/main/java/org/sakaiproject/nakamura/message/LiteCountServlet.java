@@ -121,11 +121,12 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
     try {
       // We do the query on the user's messageStore.
       String messageStorePath = ClientUtils.escapeQueryChars(messagingService.getFullPathToStore(request.getRemoteUser(), session));
-      // q=(messagestore:a\:208861/message/ AND type:internal AND messagebox:"inbox"
+      // q=(messagestore:a\:208861/message/
+      // &fq=resourceType:sakai/message AND type:internal AND messagebox:"inbox"
       // AND read:"false")&group=true&group.field=category&group.limit=0&fl=category
-      StringBuilder queryString = new StringBuilder("(messagestore:").
-          append(messageStorePath).
-          append(" AND type:internal");
+      String queryString = "messagestore:" + messageStorePath;
+
+      StringBuilder filterQuery = new StringBuilder("resourceType:sakai/message AND type:internal");
 
       // Get the filters
       if (request.getRequestParameter("filters") != null
@@ -142,11 +143,9 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
 
         for (int i = 0; i < filters.length; i++) {
           String filterName = filters[i].replaceFirst("^sakai:", "");
-          queryString.append(" AND " + filterName + ":\"" + values[i] + "\"");
+          filterQuery.append(" AND " + filterName + ":\"" + values[i] + "\"");
         }
       }
-
-      queryString.append(")");
 
       // The "groupedby" clause forces a categorized count. If not
       // specified, all we need is the total count.
@@ -156,7 +155,8 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
         groupedBy = null;
         queryOptions = ImmutableMap.of(
             PARAMS_ITEMS_PER_PAGE, (Object) "0",
-            CommonParams.START, "0"
+            CommonParams.START, "0",
+            CommonParams.FQ, filterQuery.toString()
         );
       } else {
         groupedBy = request.getRequestParameter("groupedby").getString();
@@ -169,10 +169,11 @@ public class LiteCountServlet extends SlingSafeMethodsServlet {
             put(GroupParams.GROUP, "true").
             put(GroupParams.GROUP_FIELD, groupedBy).
             put(GroupParams.GROUP_LIMIT, "0").
+            put(CommonParams.FQ, filterQuery.toString()).
             build();
       }
 
-      Query query = new Query(queryString.toString(), queryOptions);
+      Query query = new Query(queryString, queryOptions);
       LOGGER.info("Submitting Query {} ", query);
       SolrSearchResultSet resultSet = searchServiceFactory.getSearchResultSet(
           request, query, false);

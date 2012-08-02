@@ -141,9 +141,9 @@ public class ListVersionsServletTest extends AbstractEasyMockTest {
     VersionManager versionManager = createNiceMock(VersionManager.class);
     RequestPathInfo pathInfo = createNiceMock(RequestPathInfo.class);
 
-    EasyMock.expect(pathInfo.getSelectors()).andReturn(new String[0]);
+    EasyMock.expect(pathInfo.getSelectors()).andReturn(new String[0]).anyTimes();
 
-    EasyMock.expect(request.getRequestPathInfo()).andReturn(pathInfo);
+    EasyMock.expect(request.getRequestPathInfo()).andReturn(pathInfo).anyTimes();
     EasyMock.expect(request.getResource()).andReturn(resource).anyTimes();
     EasyMock.expect(resource.adaptTo(Node.class)).andReturn(node).anyTimes();
     PrintWriter pw = new PrintWriter(new ByteArrayOutputStream());

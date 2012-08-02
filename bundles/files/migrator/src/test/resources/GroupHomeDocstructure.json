@@ -1,0 +1,11 @@
+{
+    "docstructure": {
+        "_created": 1330370270159,
+        "_id": "vTsF8GF3EeGfOrfNqeXzCg+",
+        "_lastModifiedBy": "975130",
+        "structure0": "{\"library\":{\"_edit\":\"[\\\"-organizer\\\",\\\"-participant\\\"]\",\"_docref\":\"${pid}0\",\"_title\":\"Library\",\"_order\":0,\"_view\":\"[\\\"everyone\\\",\\\"anonymous\\\",\\\"-follower\\\"]\",\"_nonEditable\":true,\"_pid\":\"kaWW3x9gaa\"},\"participants\":{\"_edit\":\"[\\\"-organizer\\\"]\",\"_docref\":\"${pid}1\",\"_title\":\"Participants\",\"_order\":1,\"_view\":\"[\\\"everyone\\\",\\\"anonymous\\\",\\\"-follower\\\"]\",\"_nonEditable\":true,\"_pid\":\"kaWWE5sgaa\"}}",
+        "_lastModified": 1330370270159,
+        "_createdBy": "975130",
+        "_path": "a:InstructionalTech/docstructure"
+    }
+}

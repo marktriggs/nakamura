@@ -60,7 +60,8 @@ public class ProfileIndexingHandlerTest {
   @Mock
   private Content authprofileContent;
 
-  private static String AUTH_PROFILE_PATH = "a:jane/public/authprofile";
+  private static String AUTH_ID = "jane";
+  private static String AUTH_PROFILE_PATH = "a:" + AUTH_ID + "/public/authprofile";
   private static String SECTION_PATH = AUTH_PROFILE_PATH + "/institutional";
   private static String ELEMENTS_PATH = SECTION_PATH + "/elements";
 
@@ -157,5 +158,22 @@ public class ProfileIndexingHandlerTest {
     SolrInputDocument document = documents.iterator().next();
     Collection<Object> values = document.getFieldValues("profile");
     assertTrue(values.containsAll(ImmutableList.of("Wottsamatta U.", "Basket Theory")));
+  }
+  
+  @Test
+  public void storeAuthIdAsReturnpath() throws Exception {
+    Iterator<Content> elements = Iterators.forArray(
+        mockElementContent("college", "Wottsamatta U."),
+        mockElementContent("major", "Basket Theory")
+    );
+    when(contentManager.listChildren(ELEMENTS_PATH)).thenReturn(elements);
+    Event event = new Event(StoreListener.UPDATED_TOPIC, ImmutableMap.of(
+        "path", ELEMENTS_PATH + "/college"
+    ));
+    Collection<SolrInputDocument> documents = handler.getDocuments(repoSession, event);
+    assertEquals(1, documents.size());
+    SolrInputDocument document = documents.iterator().next();
+    Object value = document.getFieldValue("returnpath");
+    assertEquals(AUTH_ID, value);
   }
 }

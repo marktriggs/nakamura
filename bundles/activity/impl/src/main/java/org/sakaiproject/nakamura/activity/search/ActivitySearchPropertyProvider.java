@@ -24,6 +24,7 @@ import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.sakaiproject.nakamura.api.activity.ActivityUtils;
+import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchPropertyProvider;
 
 import java.util.Map;
@@ -52,6 +53,13 @@ public class ActivitySearchPropertyProvider implements SolrSearchPropertyProvide
     String path = ActivityUtils.getUserFeed(user);
     // Encode the path
     path = ClientUtils.escapeQueryChars(path);
-    propertiesMap.put("_myFeed", path);
+    propertiesMap.put("_route", path);
+
+    // {!join from=path to=activitysource}readers:anonymous
+    if (User.ANON_USER.equals(user)) {
+      propertiesMap.put("_activityJoin", "{!join from=path to=activitysource}readers:anonymous");
+    } else {
+      propertiesMap.put("_activityJoin", "{!join from=path to=activitysource}(readers:anonymous OR readers:everyone)");
+    }
   }
 }

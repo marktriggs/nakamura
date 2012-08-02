@@ -113,8 +113,7 @@ public class ContactsActivityRouter implements ActivityRouter {
           if (allowCopy) {
             // Get the activity feed for this contact and deliver it.
             activityFeedPath = ActivityUtils.getUserFeed(connection);
-            ActivityRoute route = new AbstractActivityRoute(activityFeedPath) {
-            };
+            ActivityRoute route = new AbstractActivityRoute(activityFeedPath, new String[] { connection }) {};
             routes.add(route);
           }
         }
@@ -144,7 +143,7 @@ public class ContactsActivityRouter implements ActivityRouter {
           if (allowCopy) {
             // Get the activity feed for this contact and deliver it.
             activityFeedPath = ActivityUtils.getUserFeed(connection);
-            ActivityRoute route = new AbstractActivityRoute(activityFeedPath) {
+            ActivityRoute route = new AbstractActivityRoute(activityFeedPath, new String[] { connection }) {
             };
             routes.add(route);
           }

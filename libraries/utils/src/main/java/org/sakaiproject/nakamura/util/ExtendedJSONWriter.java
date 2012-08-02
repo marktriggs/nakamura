@@ -28,7 +28,6 @@ import java.io.Writer;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
-
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.Property;
@@ -409,7 +408,8 @@ public class ExtendedJSONWriter extends JSONWriter {
       boolean objectInProgress, int maxDepth, int currentLevel)
       throws JSONException {
     if (content == null) {
-      LOGGER.warn("Can't write node tree to writer; null content");
+      //Removed per KERN-2969
+      //LOGGER.warn("Can't write node tree to writer; null content");
       return;
     }
 
@@ -432,6 +432,5 @@ public class ExtendedJSONWriter extends JSONWriter {
       write.endObject();
     }
   }
-
 
 }

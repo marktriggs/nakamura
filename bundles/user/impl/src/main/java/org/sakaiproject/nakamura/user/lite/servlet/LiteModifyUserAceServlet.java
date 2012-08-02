@@ -44,6 +44,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.Permission;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -144,6 +145,8 @@ public class LiteModifyUserAceServlet extends LiteAbstractUserPostServlet {
     AccessControlManager accessControlManager = session.getAccessControlManager();
     accessControlManager.setAcl(Security.ZONE_AUTHORIZABLES, authorizable.getId(),
             aclModifications.toArray(new AclModification[aclModifications.size()]));
+
+    responseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, authorizable.getId());
 
   }
 

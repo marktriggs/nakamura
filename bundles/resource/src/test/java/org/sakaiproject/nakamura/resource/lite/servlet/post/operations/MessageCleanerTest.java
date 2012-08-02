@@ -22,12 +22,13 @@ import org.junit.Assert;
 import org.junit.Test;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
+import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
@@ -59,7 +60,7 @@ public class MessageCleanerTest {
     String to = namespace("testNothingToClean/to");
     MessageCleaner cleaner = createCleaner();
     
-    List<Modification> modifications = cleaner.clean(from, to, createContentManager(cleaner.repository, "test"));
+    List<Modification> modifications = cleaner.clean(from, to, createSession(cleaner.repository, "test"));
     Assert.assertNotNull(modifications);
     Assert.assertEquals(0, modifications.size());
   }
@@ -74,7 +75,8 @@ public class MessageCleanerTest {
   public void testCleanSakaiMessagestore() throws Exception {
     String path = namespace("testNothingToClean/content");
     MessageCleaner cleaner = createCleaner();
-    ContentManager contentManager = createContentManager(cleaner.repository, null);
+    Session session = createSession(cleaner.repository, null);
+    ContentManager contentManager = session.getContentManager();
     ContentUtils.createContentFromJsonResource(contentManager, path, getClassLoader(),
         "org/sakaiproject/nakamura/resource/lite/servlet/post/operations/CopyCleanerTest1.json");
     
@@ -83,7 +85,7 @@ public class MessageCleanerTest {
         messagestorePath);
     String expectedMessagestoreValue = String.format("%s/", messagestorePath);
     
-    cleaner.clean("", messagePath, contentManager);
+    cleaner.clean("", messagePath, session);
     Content message = contentManager.get(messagePath);
     Assert.assertNotNull(message);
     Assert.assertEquals(expectedMessagestoreValue, message.getProperty("sakai:messagestore"));
@@ -100,12 +102,13 @@ public class MessageCleanerTest {
   public void testCleanUnprivileged() throws Exception {
     String path = namespace("testNothingToClean/content");
     MessageCleaner cleaner = createCleaner();
-    ContentManager contentManager = createContentManager(cleaner.repository, null);
+    ContentManager contentManager = createSession(cleaner.repository, null).getContentManager();
     ContentUtils.createContentFromJsonResource(contentManager, path, getClassLoader(),
         "org/sakaiproject/nakamura/resource/lite/servlet/post/operations/CopyCleanerTest1.json");
     
     // reload content manager with an unprivileged user
-    contentManager = createContentManager(cleaner.repository, "test");
+    Session testSession = createSession(cleaner.repository, "test");
+    contentManager = testSession.getContentManager();
     String messagestorePath = String.format("%s/id2529654/comments/message", path);
     String messagePath = String.format("%s/inbox/c2f752c635feca58abb582fb2113eb4342d50ffe",
         messagestorePath);
@@ -124,7 +127,7 @@ public class MessageCleanerTest {
                 .getPermission(), Operation.OP_REPLACE) });
     
     // clean, and verify that despite the user's unprivileged permission, the data was corrected.
-    cleaner.clean("", messagePath, contentManager);
+    cleaner.clean("", messagePath, testSession);
     Content message = contentManager.get(messagePath);
     Assert.assertNotNull(message);
     Assert.assertEquals(expectedMessagestoreValue, message.getProperty("sakai:messagestore"));
@@ -148,12 +151,12 @@ public class MessageCleanerTest {
     return repo;
   }
   
-  private ContentManager createContentManager(Repository repository, String userId) throws ClientPoolException,
+  private Session createSession(Repository repository, String userId) throws ClientPoolException,
       StorageClientException, AccessDeniedException, ClassNotFoundException, IOException {
     if (userId == null) {
-      return repository.loginAdministrative().getContentManager();
+      return repository.loginAdministrative();
     } else {
-      return repository.loginAdministrative(userId).getContentManager();
+      return repository.loginAdministrative(userId);
     }
   }
   

@@ -23,11 +23,15 @@ import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.easymock.EasyMock;
+import org.junit.Before;
 import org.junit.Test;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.auth.trusted.TrustedTokenServiceImpl;
 import org.sakaiproject.nakamura.formauth.FormAuthenticationHandler.FormAuthentication;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -44,6 +48,21 @@ public class FormLoginServletTest {
 
   private List<Object> mocks = new ArrayList<Object>();
 
+  TrustedTokenServiceImpl trustedTokenServiceImpl;
+
+  DynamicContentResponseCache dynamicContentResponseCache;
+
+  FormLoginServlet formLoginServlet;
+
+  @Before
+  public void setup() throws InvalidKeyException, NoSuchAlgorithmException, UnsupportedEncodingException {
+    this.trustedTokenServiceImpl = new TrustedTokenServiceImpl();
+    this.dynamicContentResponseCache = createMock(DynamicContentResponseCache.class);
+    this.formLoginServlet = new FormLoginServlet();
+    this.formLoginServlet.dynamicContentResponseCache = dynamicContentResponseCache;
+    this.formLoginServlet.trustedTokenService = trustedTokenServiceImpl;
+  }
+
   @Test
   public void testDoPostLogin() throws ServletException, IOException, InvalidKeyException, NoSuchAlgorithmException, IllegalStateException {
     SlingHttpServletRequest requestIn = EasyMock.createMock(SlingHttpServletRequest.class);
@@ -56,11 +75,6 @@ public class FormLoginServletTest {
     EasyMock.expect(requestIn.getParameter(FormLoginServlet.PASSWORD)).andReturn("pass");
     EasyMock.replay(requestIn);
 
-
-    FormLoginServlet formLoginServlet = new FormLoginServlet();
-    TrustedTokenServiceImpl trustedTokenServiceImpl = new TrustedTokenServiceImpl();
-    formLoginServlet.trustedTokenService = trustedTokenServiceImpl;
-
     FormAuthentication formAuthentication = handler.new FormAuthentication(requestIn);
 
     SlingHttpServletRequest request = createMock(SlingHttpServletRequest.class);
@@ -70,6 +84,8 @@ public class FormLoginServletTest {
 
 
     EasyMock.expect(request.getAttribute(FormAuthenticationHandler.FORM_AUTHENTICATION)).andReturn(formAuthentication);
+    dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, "ieb");
+    EasyMock.expectLastCall();
 
     EasyMock.expect(request.getResourceResolver()).andReturn(resourceResolver);
     EasyMock.expect(resourceResolver.adaptTo(Session.class)).andReturn(session);
@@ -98,19 +114,11 @@ public class FormLoginServletTest {
   @Test
   public void testDoPostLoginAuthFailed() throws ServletException, IOException, InvalidKeyException, NoSuchAlgorithmException, IllegalStateException {
 
-
-    FormLoginServlet formLoginServlet = new FormLoginServlet();
-    TrustedTokenServiceImpl trustedTokenServiceImpl = new TrustedTokenServiceImpl();
-    formLoginServlet.trustedTokenService = trustedTokenServiceImpl;
-
-
     SlingHttpServletRequest request = createMock(SlingHttpServletRequest.class);
     SlingHttpServletResponse response = createMock(SlingHttpServletResponse.class);
 
 
     EasyMock.expect(request.getAttribute(FormAuthenticationHandler.FORM_AUTHENTICATION)).andReturn(null);
-
-
     response.setContentType("text/plain");
     EasyMock.expectLastCall();
     response.setCharacterEncoding("UTF-8");
@@ -140,11 +148,6 @@ public class FormLoginServletTest {
     EasyMock.expect(requestIn.getParameter(FormLoginServlet.PASSWORD)).andReturn("pass");
     EasyMock.replay(requestIn);
 
-
-    FormLoginServlet formLoginServlet = new FormLoginServlet();
-    TrustedTokenServiceImpl trustedTokenServiceImpl = new TrustedTokenServiceImpl();
-    formLoginServlet.trustedTokenService = trustedTokenServiceImpl;
-
     FormAuthentication formAuthentication = handler.new FormAuthentication(requestIn);
 
     SlingHttpServletRequest request = createMock(SlingHttpServletRequest.class);
@@ -154,6 +157,8 @@ public class FormLoginServletTest {
 
 
     EasyMock.expect(request.getAttribute(FormAuthenticationHandler.FORM_AUTHENTICATION)).andReturn(formAuthentication);
+    dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, "crossedoversession");
+    EasyMock.expectLastCall();
 
     EasyMock.expect(request.getResourceResolver()).andReturn(resourceResolver);
     EasyMock.expect(resourceResolver.adaptTo(Session.class)).andReturn(session);

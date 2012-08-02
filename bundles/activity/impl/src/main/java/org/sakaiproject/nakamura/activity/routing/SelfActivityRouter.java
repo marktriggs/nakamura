@@ -20,6 +20,7 @@ package org.sakaiproject.nakamura.activity.routing;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Service;
 import org.sakaiproject.nakamura.api.activity.AbstractActivityRoute;
+import org.sakaiproject.nakamura.api.activity.ActivityConstants;
 import org.sakaiproject.nakamura.api.activity.ActivityRoute;
 import org.sakaiproject.nakamura.api.activity.ActivityRouter;
 import org.sakaiproject.nakamura.api.lite.Session;
@@ -60,14 +61,13 @@ public class SelfActivityRouter implements ActivityRouter {
    */
   public void route(Node activity, List<ActivityRoute> routes) {
     try {
-      String self = activity.getProperty("sakai:activity-source")
-          .getString();
+      String self = activity.getProperty("sakai:activity-source").getString();
       String path = StorageClientUtils.newPath(self, "activityFeed");
-      ActivityRoute route = new AbstractActivityRoute(path) {
+      String userId = activity.getProperty(ActivityConstants.PARAM_ACTOR_ID).toString();
+      ActivityRoute route = new AbstractActivityRoute(path, new String[] { userId }) {
       };
       routes.add(route);
     } catch (RepositoryException e) {
-
       LOGGER.error(
           "Exception when trying to deliver an activity.",
           e);
@@ -77,7 +77,8 @@ public class SelfActivityRouter implements ActivityRouter {
   public void route(Content activity, List<ActivityRoute> routes, Session adminSession) {
     String self = (String) activity.getProperty("sakai:activity-source");
     String path = StorageClientUtils.newPath(self, "activityFeed");
-    ActivityRoute route = new AbstractActivityRoute(path) {
+    String userId = (String) activity.getProperty(ActivityConstants.PARAM_ACTOR_ID);
+    ActivityRoute route = new AbstractActivityRoute(path, new String[] { userId }) {
     };
     routes.add(route);    
   }

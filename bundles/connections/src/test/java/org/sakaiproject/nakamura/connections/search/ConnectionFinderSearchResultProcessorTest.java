@@ -22,6 +22,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 
+import com.google.common.collect.ImmutableMap;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintWriter;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.request.RequestPathInfo;
 import org.apache.sling.api.resource.ResourceResolver;
@@ -30,11 +33,9 @@ import org.apache.sling.commons.json.io.JSONWriter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 import org.sakaiproject.nakamura.api.connections.ConnectionConstants;
 import org.sakaiproject.nakamura.api.connections.ConnectionState;
-import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.SessionAdaptable;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
@@ -44,13 +45,8 @@ import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.search.solr.Result;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
+import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.api.user.UserConstants;
-import org.sakaiproject.nakamura.api.user.counts.CountProvider;
-import org.sakaiproject.nakamura.user.BasicUserInfoServiceImpl;
-
-import java.io.ByteArrayOutputStream;
-import java.io.PrintWriter;
-import java.util.HashMap;
 
 /**
  *
@@ -67,18 +63,14 @@ public class ConnectionFinderSearchResultProcessorTest {
   @Mock
   ContentManager cm;
 
+  @Mock
+  BasicUserInfoService basicUserInfoService;
 
   @Test
   public void test() throws Exception {
     ConnectionFinderSearchResultProcessor processor = new ConnectionFinderSearchResultProcessor();
     processor.searchServiceFactory = searchServiceFactory;
-    processor.basicUserInfoService = new BasicUserInfoServiceImpl() {
-        public BasicUserInfoServiceImpl setup() {
-          countProvider = Mockito.mock(CountProvider.class);
-          repository = Mockito.mock(Repository.class);
-          return this;
-        }
-    }.setup();
+    processor.basicUserInfoService = basicUserInfoService;
 
     Object hybridSession = mock(javax.jcr.Session.class, withSettings()
         .extraInterfaces(SessionAdaptable.class));
@@ -98,13 +90,14 @@ public class ConnectionFinderSearchResultProcessorTest {
 
     Authorizable auBob = mock(Authorizable.class);
     when(auBob.getId()).thenReturn("bob");
-    HashMap<String, Object> auProps = new HashMap<String, Object>();
-    auProps.put("lastName", "The Builder");
-    
-    when(auBob.hasProperty("lastName")).thenReturn(true);
-    when(auBob.getProperty("lastName")).thenReturn("The Builder");
-    when(auBob.getSafeProperties()).thenReturn(auProps);
-    
+    when(basicUserInfoService.getProperties(auBob)).thenReturn(ImmutableMap.<String, Object>of(
+        UserConstants.USER_BASIC, ImmutableMap.of(
+          "elements", ImmutableMap.of(
+            "lastName", ImmutableMap.of("value", "The Builder")
+          )
+        )
+    ));
+
     when(am.findAuthorizable("alice")).thenReturn(auAlice);
     when(am.findAuthorizable("bob")).thenReturn(auBob);
 

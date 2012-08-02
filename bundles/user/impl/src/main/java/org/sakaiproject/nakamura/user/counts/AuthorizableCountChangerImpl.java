@@ -21,6 +21,7 @@ package org.sakaiproject.nakamura.user.counts;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
@@ -29,6 +30,7 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.user.AuthorizableCountChanger;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.api.user.counts.CountProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,6 +46,9 @@ public class AuthorizableCountChangerImpl implements AuthorizableCountChanger {
 
   @Reference
   private Repository repository;
+
+  @Reference
+  private DynamicContentResponseCache responseCache;
 
   @SuppressWarnings("unchecked")
   @Override
@@ -66,6 +71,7 @@ public class AuthorizableCountChangerImpl implements AuthorizableCountChanger {
           if (authz.hasProperty(propertyName)) {
             authz.removeProperty(propertyName);
             authorizableManager.updateAuthorizable(authz, false);
+            responseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, id);
             if (LOGGER.isDebugEnabled()) {
               LOGGER.debug("Removed {} prop from authorizable {}", new String[]{propertyName, id});
             }

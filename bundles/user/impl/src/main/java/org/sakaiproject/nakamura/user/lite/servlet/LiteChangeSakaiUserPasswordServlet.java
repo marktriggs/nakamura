@@ -41,6 +41,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 
 import java.util.List;
 
@@ -166,7 +167,9 @@ public class LiteChangeSakaiUserPasswordServlet extends LiteAbstractUserPostServ
         }
 
 
-          AuthorizableManager authorizableManager = session.getAuthorizableManager();
+      responseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, authorizable.getId());
+
+      AuthorizableManager authorizableManager = session.getAuthorizableManager();
           authorizableManager.changePassword(authorizable, digestPassword(newPwd), digestPassword(oldPwd));
             changes.add(Modification.onModified(resource.getPath()
                 + "/password"));

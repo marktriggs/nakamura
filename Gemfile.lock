@@ -27,7 +27,7 @@ GEM
     json (1.6.3)
     mime-types (1.17.2)
     multi_json (1.0.4)
-    nakamura (0.7)
+    nakamura (0.12)
       json (>= 1.6.3)
     nokogiri (1.5.0)
     rack (1.4.0)
@@ -65,7 +65,7 @@ DEPENDENCIES
   docsplit
   getopt
   json
-  nakamura (>= 0.7)
+  nakamura (>= 0.12)
   rmagick
   rspec
   term-extract

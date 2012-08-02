@@ -323,7 +323,7 @@ public class SamlAuthenticationHandler implements AuthenticationHandler,
   // ----------- AuthenticationHandler interface ----------------------------
   public void dropCredentials(HttpServletRequest request, HttpServletResponse response)
       throws IOException {
-    request.setAttribute(Authenticator.LOGIN_RESOURCE, logoutUrl);
+    response.sendRedirect(logoutUrl);
   }
 
   public AuthenticationInfo extractCredentials(HttpServletRequest request,
@@ -441,7 +441,11 @@ public class SamlAuthenticationHandler implements AuthenticationHandler,
   public void authenticationFailed(HttpServletRequest request,
       HttpServletResponse response, AuthenticationInfo authInfo) {
     LOGGER.debug("Failed authentication");
-    request.setAttribute(Authenticator.LOGIN_RESOURCE, missingLocalUserUrl);
+    try {
+      response.sendRedirect(missingLocalUserUrl);
+    } catch (IOException e) {
+      LOGGER.error("Failed to execute SAML authentication failure redirect.", e);
+    }
   }
 
   /**

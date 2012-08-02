@@ -2,7 +2,7 @@
 <!--  developed for CSU by ieb
 Contains hard coded IP addresses and port numbers that may need changing. -->
 <ehcache xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:noNamespaceSchemaLocation="ehcache.xsd">
+	xsi:noNamespaceSchemaLocation="ehcache.xsd" updateCheck="false">
 
 
     <diskStore path="${cache-store}"/>
@@ -218,7 +218,7 @@ Contains hard coded IP addresses and port numbers that may need changing. -->
 	</cache>
 
     <!--  these are pages and page fragments, 10000 in memory -->
-	<cache name="org.sakaiproject.nakamura.http.cache.CacheControlFilter-cache"  maxElementsInMemory="10000"
+	<cache name="org.sakaiproject.nakamura.http.cache.StaticContentResponseCache-cache"  maxElementsInMemory="10000"
 		eternal="false" overflowToDisk="false"
 		timeToIdleSeconds="300" timeToLiveSeconds="600"
 		memoryStoreEvictionPolicy="LFU"  >

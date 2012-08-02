@@ -18,6 +18,7 @@
 package org.sakaiproject.nakamura.files.pool;
 
 import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_USER_MANAGER;
+import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_COMMENT_COUNT;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -42,6 +43,7 @@ import org.sakaiproject.nakamura.api.doc.ServiceExtension;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceParameter;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
+import org.sakaiproject.nakamura.api.files.FilesConstants;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
@@ -55,6 +57,7 @@ import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -116,7 +119,6 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
   private static final String COMMENT_ID = "commentId";
   private static final String AUTHOR = "author";
   private static final String CREATED = "_created";
-  private static final String COMMENTCOUNT = "commentCount";
 
   @Reference
   private Repository repository;
@@ -143,17 +145,6 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
     Resource resource = request.getResource();
     Content poolContent = resource.adaptTo(Content.class);
 
-    boolean isTidy = false;
-    String[] selectors = request.getRequestPathInfo().getSelectors();
-    if (selectors != null) {
-      for (int i = 0; i < selectors.length; i++) {
-        String selector = selectors[i];
-        if ("tidy".equals(selector)) {
-          isTidy = true;
-        }
-      }
-    }
-
     try {
       ContentManager contentManager = resource.adaptTo(ContentManager.class);
       Session session = resource.adaptTo(Session.class);
@@ -163,18 +154,18 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
       response.setCharacterEncoding("UTF-8");
       
       // if there is no commentCount property, then calculate and add 
-      if(!poolContent.hasProperty(COMMENTCOUNT)){
+      if(!poolContent.hasProperty(POOLED_CONTENT_COMMENT_COUNT)){
         if (comments!=null){
-          poolContent.setProperty(COMMENTCOUNT, Iterables.size(comments.listChildPaths()));
+          poolContent.setProperty(POOLED_CONTENT_COMMENT_COUNT, Iterables.size(comments.listChildPaths()));
         } else {
-          poolContent.setProperty(COMMENTCOUNT, 0);
+          poolContent.setProperty(POOLED_CONTENT_COMMENT_COUNT, 0);
         }
         
         Session adminSession = null;
         try{
           adminSession = repository.loginAdministrative();
           ContentManager adminContentManager = adminSession.getContentManager();
-          adminContentManager.update(poolContent); 
+          adminContentManager.update(poolContent, Boolean.FALSE);
         } finally {
           if (adminSession != null) {
             try {
@@ -187,7 +178,7 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
       }
 
       ExtendedJSONWriter w = new ExtendedJSONWriter(response.getWriter());
-      w.setTidy(isTidy);
+      w.setTidy(ServletUtils.isTidy(request));
       w.object();
       w.key(COMMENTS);
       w.array();
@@ -300,9 +291,9 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
         statusCode = HttpServletResponse.SC_CREATED;
         
         // increasing commentCount by 1, for a new comment
-        if(poolContent.hasProperty(COMMENTCOUNT)){
-          int commentCount = (Integer)poolContent.getProperty(COMMENTCOUNT);
-          poolContent.setProperty(COMMENTCOUNT, commentCount+1);
+        if(poolContent.hasProperty(POOLED_CONTENT_COMMENT_COUNT)){
+          int commentCount = (Integer)poolContent.getProperty(POOLED_CONTENT_COMMENT_COUNT);
+          poolContent.setProperty(POOLED_CONTENT_COMMENT_COUNT, commentCount+1);
         }
         contentManager.update(poolContent);
       }
@@ -390,9 +381,9 @@ public class ContentPoolCommentServlet extends SlingAllMethodsServlet implements
       }
       contentManager.delete(path);
       // decreasing commentCount by 1, when a comment is deleted
-      if(poolItem.hasProperty(COMMENTCOUNT) ){
-        Integer commentCount = (Integer)poolItem.getProperty(COMMENTCOUNT);
-        if (commentCount > 0) poolItem.setProperty(COMMENTCOUNT, commentCount-1);
+      if(poolItem.hasProperty(POOLED_CONTENT_COMMENT_COUNT) ){
+        Integer commentCount = (Integer)poolItem.getProperty(POOLED_CONTENT_COMMENT_COUNT);
+        if (commentCount > 0) poolItem.setProperty(POOLED_CONTENT_COMMENT_COUNT, commentCount-1);
         contentManager.update(poolItem);
       }
       response.setStatus(HttpServletResponse.SC_NO_CONTENT);

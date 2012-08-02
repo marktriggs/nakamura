@@ -19,18 +19,17 @@ package org.sakaiproject.nakamura.remotefiles.docproxy;
 
 
 import org.sakaiproject.nakamura.api.docproxy.DocProxyException;
-import org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult;
+import org.sakaiproject.nakamura.docproxy.AbstractDocumentResult;
 import org.sakaiproject.nakamura.remotefiles.RemoteFilesRepository;
 
 import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
 /**
  *
  */
-public class RemoteFilesDocumentResult implements ExternalDocumentResult {
+public class RemoteFilesDocumentResult extends AbstractDocumentResult {
 
   private long contentLength;
   private String contentType;
@@ -66,19 +65,9 @@ public class RemoteFilesDocumentResult implements ExternalDocumentResult {
    * 
    * @see org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult#getDocumentInputStream(long)
    */
-  public InputStream getDocumentInputStream(long startingAt, String userId)
+  public InputStream getDocumentInputStream(String userId)
       throws DocProxyException {
-    try {
-      InputStream rv = new ByteArrayInputStream(remoteFilesRepository.getFileContent(uri, userId));
-      {
-        rv.skip(startingAt);
-        return rv;
-      }
-    } catch (IOException e) {
-      throw new DocProxyException(500,
-          "Could not start reading external repository document at the requested byte position: "
-              + startingAt);
-    }
+    return new ByteArrayInputStream(remoteFilesRepository.getFileContent(uri, userId));
   }
 
   /**

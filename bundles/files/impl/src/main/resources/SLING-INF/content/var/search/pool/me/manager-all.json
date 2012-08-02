@@ -1,21 +1,17 @@
 {
-//  "sakai:query-template": 'sling\\:resourceType:sakai/pooled-content ${_meManagerGroups}',
-  "sakai:query-template": "resourceType:sakai/pooled-content ${_meManagerGroups}",
-  "sakai:query-template-options": {
-      "sort": "${sortOn} ${sortOrder}"
-  },
+  "sakai:query-template": "${_q}",
   "sakai:query-template-defaults": {
-    "_meManagerGroups": "",
-    "sortOn": "score",
-    "sortOrder": "desc"
+    "role": "manager"
   },
   "sling:resourceType": "sakai/solr-search",
-  "sakai:propertyprovider" : "PooledContentSparse",
-  "sakai:batchresultprocessor": "LiteMeManagerFiles",
-  "sakai:title": "Pooled Content - Me - Manager - All",
-  "sakai:shortDescription": "Searches trough all the files where the current user is a manager.",
+  "sakai:propertyprovider": ["AccessScopedContentQueryHandler"],
+  "sakai:resultprocessor": "AccessScopedContentQueryHandler",
+  "sakai:title": "(DEPRECATED - use /var/search/pool/me/role.json with no 'q' parameter and role=manager) Pooled Content - Me - Manager - All",
+  "sakai:shortDescription": "Searches through all the files where the current user is a manager.",
   "sakai:parameters" : [
-      "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. Default is jcr:score\"}",
+      "{\"name\" : \"userid\", \"description\" : \"The user on which to search. If not specified it will be the authenticated user. If anonymous, there will be an error.\"}",
+      "{\"name\" : \"mimetype\", \"description\" : \"The mimetype of the content on which to search..\"}",
+      "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. Default is jcr:score.\"}",
       "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'ascending' or 'descending'.\"}"
-  ],
+  ]
 }

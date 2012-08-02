@@ -145,7 +145,7 @@ public class UrlDocumentResultTest {
   @Test(expected = DocProxyException.class)
   public void testGetInputStreamBadUri() throws DocProxyException {
     UrlDocumentResult result1 = new UrlDocumentResult();
-    result1.getDocumentInputStream(0);
+    result1.getDocumentInputStream(null);
   }
 
   @Test
@@ -153,6 +153,6 @@ public class UrlDocumentResultTest {
     File f = File.createTempFile("urlDocProxyTest", null);
     UrlDocumentResult result1 = new UrlDocumentResult();
     result1.setUri(f.toURI().toString());
-    result1.getDocumentInputStream(0);
+    result1.getDocumentInputStream(null);
   }
 }

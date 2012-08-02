@@ -39,8 +39,10 @@ import static org.sakaiproject.nakamura.api.user.UserConstants.USER_LASTNAME_PRO
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 
+import java.util.Set;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
@@ -128,6 +130,17 @@ public class AuthorizableIndexingHandler implements IndexingHandler {
     builder.put(SAKAI_EXCLUDE, "exclude");
     GROUP_WHITELISTED_PROPS = builder.build();
   }
+
+  private final static Set<String> NGRAM_PROPS = ImmutableSet.of(
+      USER_FIRSTNAME_PROPERTY,
+      USER_LASTNAME_PROPERTY,
+      GROUP_TITLE_PROPERTY
+  );
+  private final static Set<String> EDGE_NGRAM_PROPS = ImmutableSet.of(
+      USER_FIRSTNAME_PROPERTY,
+      USER_LASTNAME_PROPERTY,
+      GROUP_TITLE_PROPERTY
+  );
 
   private static final String SAKAI_PSEUDOGROUPPARENT_PROP = "sakai:parent-group-id";
 
@@ -252,6 +265,12 @@ public class AuthorizableIndexingHandler implements IndexingHandler {
       if (fields.containsKey(p.getKey())) {
         String solrField = fields.get(p.getKey());
         doc.addField(solrField, p.getValue());
+      }
+      if (NGRAM_PROPS.contains(p.getKey())) {
+        doc.addField("ngram", p.getValue());
+      }
+      if (EDGE_NGRAM_PROPS.contains(p.getKey())) {
+        doc.addField("edgengram", p.getValue());
       }
     }
 

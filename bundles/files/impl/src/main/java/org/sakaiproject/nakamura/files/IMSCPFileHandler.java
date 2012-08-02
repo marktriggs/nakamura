@@ -166,35 +166,47 @@ public class IMSCPFileHandler implements FileUploadHandler {
       filePaths.add(entry.getName());
       String entryType = mimeTypesMap.getContentType(entry.getName());
       if (entryType != null && entryType.contains("text")) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(getInputStream(zin)));
-        StringBuilder builder = new StringBuilder();
-        char[] chars = new char[4096];
-        int length = 0;
-        while (0 < (length = reader.read(chars))) {
-          builder.append(chars, 0, length);
+        BufferedReader reader = null;
+        try {
+          reader = new BufferedReader(new InputStreamReader(getInputStream(zin)));
+          StringBuilder builder = new StringBuilder();
+          char[] chars = new char[4096];
+          int length = 0;
+          while (0 < (length = reader.read(chars))) {
+            builder.append(chars, 0, length);
+          }
+          fileContent.put(entry.getName(), builder.toString());
+          LOGGER.debug(" Saving Text file {} ",baseDir+"/"+entry.getName());
+          contentManager.writeBody(baseDir + "/" + entry.getName(), new ByteArrayInputStream(builder.toString().getBytes()));
+        } finally {
+          if (reader != null) {
+            reader.close();
+          }
         }
-        fileContent.put(entry.getName(), builder.toString());
-        LOGGER.debug(" Saving Text file {} ",baseDir+"/"+entry.getName());
-        contentManager.writeBody(baseDir + "/" + entry.getName(), new ByteArrayInputStream(builder.toString().getBytes()));
-        reader.close();
         continue;
       }
       
       if (filename.equalsIgnoreCase(entry.getName())) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(getInputStream(zin)));
-        StringBuilder builder = new StringBuilder();
-        char[] chars = new char[4096];
-        int length = 0;
-        while (0 < (length = reader.read(chars))) {
-          builder.append(chars, 0, length);
+        BufferedReader reader = null;
+        try {
+          reader = new BufferedReader(new InputStreamReader(getInputStream(zin)));
+          StringBuilder builder = new StringBuilder();
+          char[] chars = new char[4096];
+          int length = 0;
+          while (0 < (length = reader.read(chars))) {
+            builder.append(chars, 0, length);
+          }
+          String xmlContent = builder.toString();
+          // Abandon the last character, otherwise there will be parse error in toJSONObject method
+          xmlContent = xmlContent.substring(0, xmlContent.lastIndexOf('>') + 1);
+          manifest = new Manifest(xmlContent);
+          LOGGER.debug(" Saving Manifest file {} ",baseDir+"/"+filename);
+          contentManager.writeBody(baseDir + "/" + filename, new ByteArrayInputStream(builder.toString().getBytes()));
+        } finally {
+          if (reader != null) {
+            reader.close();
+          }
         }
-        String xmlContent = builder.toString();
-        // Abandon the last character, otherwise there will be parse error in toJSONObject method
-        xmlContent = xmlContent.substring(0, xmlContent.lastIndexOf('>') + 1);
-        manifest = new Manifest(xmlContent);
-        LOGGER.debug(" Saving Manifest file {} ",baseDir+"/"+filename);
-        contentManager.writeBody(baseDir + "/" + filename, new ByteArrayInputStream(builder.toString().getBytes()));
-        reader.close();
         continue;
       }
       

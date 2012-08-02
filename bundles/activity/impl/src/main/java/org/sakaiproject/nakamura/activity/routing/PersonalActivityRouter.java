@@ -65,7 +65,7 @@ public class PersonalActivityRouter implements ActivityRouter {
       String actor = activity.getProperty(ActivityConstants.PARAM_ACTOR_ID)
           .getString();
       String path = ActivityUtils.getUserFeed(actor);
-      ActivityRoute route = new AbstractActivityRoute(path) {
+      ActivityRoute route = new AbstractActivityRoute(path, new String[0]) {
       };
       routes.add(route);
     } catch (RepositoryException e) {
@@ -79,7 +79,7 @@ public class PersonalActivityRouter implements ActivityRouter {
   public void route(Content activity, List<ActivityRoute> routes, Session adminSession) {
     String actor = (String) activity.getProperty(ActivityConstants.PARAM_ACTOR_ID);
     String path = ActivityUtils.getUserFeed(actor);
-    ActivityRoute route = new AbstractActivityRoute(path) {
+    ActivityRoute route = new AbstractActivityRoute(path, new String[0]) {
     };
     routes.add(route);    
   }

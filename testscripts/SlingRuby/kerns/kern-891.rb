@@ -62,7 +62,8 @@ class TC_MyFileTest_891 < Test::Unit::TestCase
       assert_equal("-1",res.code,"Expected not be be able to upload a file as anon user "+res.body)
     end
 
-    res = @ff.myfiles("*")
+    res = @s.execute_get(@s.url_for("/var/search/pool/me/manager.json?q=anonanon"))
+    
     myfiles = JSON.parse(res.body)
     assert_equal(0, myfiles["total"].to_i(), "Expected 0 files for anon.")
 

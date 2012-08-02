@@ -284,4 +284,6 @@ public interface UserConstants {
 
   public static final String SAKAI_CATEGORY = "sakai:category";
 
+  public static final String USER_RESPONSE_CACHE = "userFeed";
+
 }

@@ -18,7 +18,7 @@
 package org.sakaiproject.nakamura.docproxy.url;
 
 import org.sakaiproject.nakamura.api.docproxy.DocProxyException;
-import org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult;
+import org.sakaiproject.nakamura.docproxy.AbstractDocumentResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,7 +31,7 @@ import java.util.Map;
 /**
  *
  */
-public class UrlDocumentResult implements ExternalDocumentResult {
+public class UrlDocumentResult extends AbstractDocumentResult {
   private static final Logger LOG = LoggerFactory.getLogger(UrlDocumentResult.class);
 
   private String uri;
@@ -98,14 +98,12 @@ public class UrlDocumentResult implements ExternalDocumentResult {
   }
 
   /**
-   * {@inheritDoc}
-   * 
-   * @see org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult#getDocumentInputStream(long)
+   * @deprecated Deprecated in 1.4. Use {@link #getDocumentInputStream(String)} instead, and
+   * manually skip over the bytes if necessary.
    */
   public InputStream getDocumentInputStream(long startingAt) throws DocProxyException {
     try {
-      URL url = new URL(uri);
-      InputStream is = url.openStream();
+      InputStream is = getDocumentInputStream(null);
       long actual = is.skip(startingAt);
       if (actual != startingAt) {
         LOG.info("Requested skip: {}, actual: {}", startingAt, actual);
@@ -190,9 +188,17 @@ public class UrlDocumentResult implements ExternalDocumentResult {
     return true;
   }
 
-  public InputStream getDocumentInputStream(long startingAt, String userId)
-      throws DocProxyException {
-    // TODO Auto-generated method stub
-    return null;
+  /**
+   * {@inheritDoc}
+   * @see org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult#getDocumentInputStream(java.lang.String)
+   */
+  @Override
+  public InputStream getDocumentInputStream(String userId) throws DocProxyException {
+    try {
+      return new URL(uri).openStream();
+    } catch (IOException e) {
+      throw new DocProxyException(500, "Error in getting document input stream: "
+          + e.getMessage());
+    }
   }
 }

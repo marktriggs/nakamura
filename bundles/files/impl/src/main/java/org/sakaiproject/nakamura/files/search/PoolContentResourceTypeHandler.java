@@ -82,14 +82,14 @@ public class PoolContentResourceTypeHandler implements IndexingHandler, QoSIndex
   protected ResourceIndexingService resourceIndexingService;
 
   @Reference
-  private TikaService tika;
+  protected TikaService tika;
 
   private static Map<String, Object> getFieldMap() {
     Builder<String, Object> builder = ImmutableMap.builder();
     builder.put(FilesConstants.POOLED_CONTENT_USER_MANAGER, "manager");
     builder.put(FilesConstants.POOLED_CONTENT_USER_EDITOR, "editor");
     builder.put(FilesConstants.POOLED_CONTENT_USER_VIEWER, "viewer");
-    builder.put(FilesConstants.POOLED_CONTENT_FILENAME, new String[] { "filename", "general_sort" });
+    builder.put(FilesConstants.POOLED_CONTENT_FILENAME, new String[] { "filename", "general_sort", "edgengram", "ngram" });
     builder.put(FilesConstants.POOLED_NEEDS_PROCESSING, "needsprocessing");
     builder.put(FilesConstants.POOLED_CONTENT_MIMETYPE, "mimeType");
     builder.put(FilesConstants.SAKAI_FILE, "file");

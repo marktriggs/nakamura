@@ -18,6 +18,7 @@
 package org.sakaiproject.nakamura.files.pool;
 
 import static org.apache.sling.jcr.resource.JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY;
+import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_COMMENT_COUNT;
 import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_CREATED_FOR;
 import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_FILENAME;
 import static org.sakaiproject.nakamura.api.files.FilesConstants.POOLED_CONTENT_RT;
@@ -307,6 +308,7 @@ public class CreateContentPoolServlet extends SlingAllMethodsServlet {
     contentProperties.put(SLING_RESOURCE_TYPE_PROPERTY, POOLED_CONTENT_RT);
     contentProperties.put(POOLED_CONTENT_CREATED_FOR, au.getId());
     contentProperties.put(POOLED_CONTENT_USER_MANAGER, new String[]{au.getId()});
+    contentProperties.put(POOLED_CONTENT_COMMENT_COUNT, Integer.valueOf(0));
     for ( Entry<String, RequestParameter[]>   e : request.getRequestParameterMap().entrySet() ) {
       String k = e.getKey();
       if ( !(k.startsWith("_") || k.startsWith(":")) && !FilesConstants.RESERVED_POOL_KEYS.contains(k) ) {

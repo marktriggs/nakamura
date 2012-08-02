@@ -82,9 +82,12 @@ public class SolrSearchResultSetImpl implements SolrSearchResultSet, SolrQueryRe
     NamedList<Object> grouped = (NamedList<Object>) response.get("grouped");
     if (grouped.size() > 0) {
       NamedList<Object> groupings = (NamedList<Object>) grouped.getVal(0);
-      // have to set this manually
-      long numFound = (Integer) groupings.get("matches");
-      responseList.setNumFound(numFound);
+      Integer numFound = (Integer) groupings.get("ngroups");
+      if (numFound == null) {
+        LOGGER.debug("Grouped query missing ngroups; total will be inaccurate: {}", queryResponse);
+        numFound = (Integer) groupings.get("matches");
+      }
+      responseList.setNumFound(numFound.longValue());
       List<NamedList<Object>> groups = (List<NamedList<Object>>) groupings.get("groups");
 
       for (NamedList<Object> group : groups) {

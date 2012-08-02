@@ -39,13 +39,12 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.servlet.ServletException;
@@ -105,9 +104,7 @@ public class CanModifyContentPoolServlet extends SlingSafeMethodsServlet {
 
         response.setContentType("application/json");
         final ExtendedJSONWriter writer = new ExtendedJSONWriter(response.getWriter());
-        final List<String> selectors = Arrays.asList(request.getRequestPathInfo()
-            .getSelectors());
-        writer.setTidy(selectors.contains("tidy"));
+        writer.setTidy(ServletUtils.isTidy(request));
         writer.object(); // root object
         writer.key(request.getRequestPathInfo().getResourcePath());
         writer.value(canModifyNode);

@@ -22,6 +22,7 @@ import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.sakaiproject.nakamura.api.jcr.ContentReloaderService.BUNDLE_CONTENT_NODE;
@@ -45,6 +46,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
+import org.sakaiproject.nakamura.api.http.cache.StaticContentResponseCache;
 
 /**
  *
@@ -63,6 +66,10 @@ public class ContentReloaderServiceImplTest {
   NodeIterator bundleContentIter;
   @Mock
   Component contentLoader;
+  @Mock
+  StaticContentResponseCache staticCache;
+  @Mock
+  DynamicContentResponseCache dynamicCache;
 
   ContentReloaderServiceImpl service;
 
@@ -83,6 +90,8 @@ public class ContentReloaderServiceImplTest {
     service = new ContentReloaderServiceImpl();
     service.scrService = scrService;
     service.slingRepo = slingRepo;
+    service.staticCache = staticCache;
+    service.dynamicCache = dynamicCache;
   }
 
   @Test
@@ -126,6 +135,8 @@ public class ContentReloaderServiceImplTest {
 
     verify(contentLoader).disable();
     verify(contentLoader).enable();
+    verify(staticCache).clear();
+    verify(dynamicCache).clear();
   }
 
   @Test
@@ -142,6 +153,8 @@ public class ContentReloaderServiceImplTest {
 
     verify(contentLoader).disable();
     verify(contentLoader).enable();
+    verify(staticCache, times(2)).clear();
+    verify(dynamicCache, times(2)).clear();
   }
 
   @Test
@@ -159,6 +172,8 @@ public class ContentReloaderServiceImplTest {
 
     verify(contentLoader, never()).disable();
     verify(contentLoader, never()).enable();
+    verify(staticCache, times(2)).clear();
+    verify(dynamicCache, times(2)).clear();
   }
 
   @Test
@@ -170,6 +185,8 @@ public class ContentReloaderServiceImplTest {
 
     verify(contentLoader, never()).disable();
     verify(contentLoader, never()).enable();
+    verify(staticCache).clear();
+    verify(dynamicCache).clear();
   }
 
   @Test
@@ -182,6 +199,8 @@ public class ContentReloaderServiceImplTest {
 
     verify(contentLoader, never()).disable();
     verify(contentLoader, never()).enable();
+    verify(staticCache).clear();
+    verify(dynamicCache).clear();
   }
 
   /**

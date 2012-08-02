@@ -23,6 +23,11 @@ package org.sakaiproject.nakamura.api.activity;
 public interface ActivityRoute {
 
   /**
+   * @return The user ids who should be able to read the activity.
+   */
+  public String[] getReaders();
+  
+  /**
    * @return The destination for an activity.
    */
   public String getDestination();

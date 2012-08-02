@@ -30,6 +30,8 @@ import org.apache.felix.scr.ScrService;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.jcr.api.SlingRepository;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
+import org.sakaiproject.nakamura.api.http.cache.StaticContentResponseCache;
 import org.sakaiproject.nakamura.api.jcr.ContentReloaderService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +54,12 @@ public class ContentReloaderServiceImpl implements ContentReloaderService {
 
   @Reference
   protected SlingRepository slingRepo;
+
+  @Reference
+  protected StaticContentResponseCache staticCache;
+
+  @Reference
+  protected DynamicContentResponseCache dynamicCache;
 
   public String[] listLoadedBundles() throws RepositoryException,
       PathNotFoundException {
@@ -101,6 +109,9 @@ public class ContentReloaderServiceImpl implements ContentReloaderService {
     if (removed != null && removed.size() > 0) {
       restartContentLoaderService();
     }
+
+    staticCache.clear();
+    dynamicCache.clear();
 
     return removed;
   }

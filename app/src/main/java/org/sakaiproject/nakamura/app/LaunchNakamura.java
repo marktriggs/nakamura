@@ -52,7 +52,7 @@ public class LaunchNakamura extends javax.swing.JFrame {
   public static final int APP_NOT_RUNNING = 0;
   private static String[] savedArgs;
   private int runStatus = APP_NOT_RUNNING; // 0 for off, 1 for on.
-  private static final String localhostURL = "http://localhost:8080/dev/";
+  private static final String localhostURL = "http://localhost:8080/";
 
   /** Creates new form LaunchNakamura */
   public LaunchNakamura() {
@@ -351,13 +351,17 @@ public class LaunchNakamura extends javax.swing.JFrame {
       Writer writer = new StringWriter();
 
       char[] buffer = new char[1024];
+      Reader reader = null;
       try {
-        Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+        reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
         int n;
         while ((n = reader.read(buffer)) != -1) {
           writer.write(buffer, 0, n);
         }
       } finally {
+        if (reader != null) {
+          reader.close();
+        }
         is.close();
       }
       return writer.toString();

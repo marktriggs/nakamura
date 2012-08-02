@@ -19,9 +19,6 @@ package org.sakaiproject.nakamura.resource.lite.servlet.post.operations;
 
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Property;
-import org.apache.felix.scr.annotations.Reference;
-import org.apache.felix.scr.annotations.ReferenceCardinality;
-import org.apache.felix.scr.annotations.ReferencePolicy;
 import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.servlets.HtmlResponse;
@@ -31,7 +28,6 @@ import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
-import org.sakaiproject.nakamura.api.resource.MoveCleaner;
 import org.sakaiproject.nakamura.api.resource.lite.SparsePostOperation;
 import org.sakaiproject.nakamura.util.PathUtils;
 
@@ -71,7 +67,7 @@ public class SakaiDocPagePublishOperation extends MoveOperation {
   
   private Pattern PATTERN_PAGE_PATH = Pattern.compile("^(.+/)tmp_(id[0-9]+)$");
   private Pattern PATTERN_PAGE_CHILDPATH = Pattern.compile("^(.+/)tmp_(id[0-9]+.*)$");
-  
+
   @Override
   public void doRun(SlingHttpServletRequest request, HtmlResponse response,
       ContentManager contentManager, List<Modification> changes, String contentPath)

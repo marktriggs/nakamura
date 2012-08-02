@@ -17,16 +17,22 @@
  */
 package org.sakaiproject.nakamura.batch;
 
+import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.sling.SlingServlet;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
+import org.apache.sling.commons.json.JSONArray;
+import org.apache.sling.commons.json.JSONException;
 import org.sakaiproject.nakamura.api.doc.BindingType;
 import org.sakaiproject.nakamura.api.doc.ServiceBinding;
 import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceParameter;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
+import org.sakaiproject.nakamura.util.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -62,9 +68,13 @@ public class BatchServlet extends SlingAllMethodsServlet {
 
   private static final long serialVersionUID = 419598445499567027L;
 
+  private static final Logger LOGGER = LoggerFactory
+      .getLogger(BatchServlet.class);
+
   protected static final String REQUESTS_PARAMETER = "requests";
-  
-  private BatchHelper helper = new BatchHelper();
+
+  @Reference
+  BatchHelper helper;
 
   /**
    * {@inheritDoc}
@@ -125,10 +135,21 @@ public class BatchServlet extends SlingAllMethodsServlet {
   protected void batchRequest(SlingHttpServletRequest request,
       SlingHttpServletResponse response, boolean allowModify) throws IOException, ServletException {
     // Grab the JSON block out of it and convert it to RequestData objects we can use.
-    String json = request.getParameter(REQUESTS_PARAMETER);    
-    helper.batchRequest(request, response, json, allowModify);
+    String json = request.getParameter(REQUESTS_PARAMETER);
+
+    if (StringUtils.isEmpty(json)) {
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST, "You must send the requests parameter");
+      return;
+    }
+
+    try {
+      JSONArray requests = new JSONArray(json);
+      helper.batchRequest(request, response, requests, allowModify, true);
+    } catch (JSONException e) {
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST,
+          "Failed to parse the " + REQUESTS_PARAMETER + " parameter");
+      LOGGER.warn("Failed to parse the " + REQUESTS_PARAMETER + " parameter");
+    }
   }
-
-
 
 }

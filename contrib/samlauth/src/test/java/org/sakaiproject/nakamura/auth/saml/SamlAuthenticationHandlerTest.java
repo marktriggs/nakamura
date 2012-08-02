@@ -167,7 +167,7 @@ public class SamlAuthenticationHandlerTest {
   public void dropCredentialsWithLogoutUrl() throws IOException {
     ssoAuthenticationHandler.dropCredentials(request, response);
 
-    verify(request).setAttribute(Authenticator.LOGIN_RESOURCE, "http://localhost/logout");
+    verify(response).sendRedirect("http://localhost/logout");
   }
 
   @Test
@@ -176,7 +176,7 @@ public class SamlAuthenticationHandlerTest {
 
     ssoAuthenticationHandler.dropCredentials(request, response);
 
-    verify(request).setAttribute(Authenticator.LOGIN_RESOURCE, "http://localhost/logout");
+    verify(response).sendRedirect("http://localhost/logout");
   }
 
   @Test

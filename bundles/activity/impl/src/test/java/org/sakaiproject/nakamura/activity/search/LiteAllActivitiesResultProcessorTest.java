@@ -45,15 +45,17 @@ import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.search.solr.Query;
 import org.sakaiproject.nakamura.api.search.solr.Result;
-import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
+import org.sakaiproject.nakamura.api.search.solr.ResultSetFactory;
 import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.lite.BaseMemoryRepository;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -67,13 +69,14 @@ import java.util.Map;
 public class LiteAllActivitiesResultProcessorTest {
 
   private LiteAllActivitiesResultProcessor processor;
-  private SolrSearchServiceFactory solrSearchServiceFactory;
+  private ResultSetFactory resultSetFactory;
   private Repository repository;
   private javax.jcr.Session jcrSession;
   private Session session;
   private StringWriter stringWriter;
   private SlingHttpServletRequest request;
   private Result result;
+  private Iterator<Result> resultIterator;
   private JSONWriter jsonWriter;
   private String activityPath = "/var/activities/me";
   private String contentPath = "/p/abc123";
@@ -82,8 +85,8 @@ public class LiteAllActivitiesResultProcessorTest {
   @Before
   public void setup() throws Exception {
     processor = new LiteAllActivitiesResultProcessor();
-    solrSearchServiceFactory = mock(SolrSearchServiceFactory.class);
-    processor.searchServiceFactory = solrSearchServiceFactory;
+    resultSetFactory = mock(ResultSetFactory.class);
+    processor.resultSetFactory = resultSetFactory;
     BasicUserInfoService basicUserInfoService = mock(BasicUserInfoService.class);
     when(basicUserInfoService.getProperties(Matchers.<Authorizable>anyObject())).thenReturn(ImmutableMap.of("firstName", (Object)"Alice", "lastName", "Walter", "email", "alice@example.com"));
     processor.basicUserInfoService = basicUserInfoService;
@@ -98,6 +101,10 @@ public class LiteAllActivitiesResultProcessorTest {
     when(request.getResourceResolver().adaptTo(javax.jcr.Session.class)).thenReturn(jcrSession);
 
     result = mock(Result.class);
+    List<Result> results = new ArrayList<Result>();
+    results.add(result);
+    resultIterator = results.iterator();
+
     jsonWriter = new ExtendedJSONWriter(stringWriter);
 
     repository.loginAdministrative().getAuthorizableManager().createUser("alice", "alice", "alice", null);
@@ -113,8 +120,8 @@ public class LiteAllActivitiesResultProcessorTest {
       ActivityConstants.PARAM_ACTOR_ID, "alice")));
 
     when(result.getPath()).thenReturn(activityPath);
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -127,8 +134,8 @@ public class LiteAllActivitiesResultProcessorTest {
     contentManager.update(new Content(contentPath, null));
 
     when(result.getPath()).thenReturn(activityPath);
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -144,8 +151,8 @@ public class LiteAllActivitiesResultProcessorTest {
     List<AclModification> aclModifications = Lists.newArrayList();
     AclModification.addAcl(false, Permissions.CAN_READ, "alice", aclModifications);
     repository.loginAdministrative().getAccessControlManager().setAcl(Security.ZONE_CONTENT, "/p/abc123", aclModifications.toArray(new AclModification[aclModifications.size()]));
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -161,8 +168,8 @@ public class LiteAllActivitiesResultProcessorTest {
     List<AclModification> aclModifications = Lists.newArrayList();
     AclModification.addAcl(false, Permissions.CAN_READ, "alice", aclModifications);
     repository.loginAdministrative().getAccessControlManager().setAcl(Security.ZONE_CONTENT, activityPath, aclModifications.toArray(new AclModification[aclModifications.size()]));
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -179,8 +186,8 @@ public class LiteAllActivitiesResultProcessorTest {
     List<AclModification> aclModifications = Lists.newArrayList();
     AclModification.addAcl(false, Permissions.CAN_READ, "alice", aclModifications);
     repository.loginAdministrative().getAccessControlManager().setAcl(Security.ZONE_AUTHORIZABLES, "bob", aclModifications.toArray(new AclModification[aclModifications.size()]));
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -193,8 +200,8 @@ public class LiteAllActivitiesResultProcessorTest {
     contentManager.update(new Content(contentPath, ImmutableMap.of("sling:resourceType", (Object)"sakai/group-home")));
 
     when(result.getPath()).thenReturn(activityPath);
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -209,8 +216,8 @@ public class LiteAllActivitiesResultProcessorTest {
       "comment", "Wow, this is a groovy photo. Love the shadows.")));
 
     when(result.getPath()).thenReturn(activityPath);
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -222,8 +229,8 @@ public class LiteAllActivitiesResultProcessorTest {
     props.put("hobbies", hobbies);
     when(result.getPath()).thenReturn("/foo/bar/baz");
     when(result.getProperties()).thenReturn(props);
-    processor.writeResult(request, jsonWriter, result);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
@@ -231,14 +238,14 @@ public class LiteAllActivitiesResultProcessorTest {
     session = mock(Session.class);
     when(session.getContentManager()).thenThrow(new StorageClientException("Something wrong with storage. Shrug."));
     when(((SessionAdaptable) jcrSession).getSession()).thenReturn(session);
-    processor.writeResult(request, jsonWriter, result);
+    processor.writeResults(request, jsonWriter, resultIterator);
   }
 
   @Test
   public void callSearchServiceFactory() throws Exception {
     Query query = mock(Query.class);
     processor.getSearchResultSet(request, query);
-    verify(solrSearchServiceFactory).getSearchResultSet(request, query);
+    verify(resultSetFactory).processQuery(request, query, false);
   }
 
   @After

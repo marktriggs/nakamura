@@ -124,21 +124,27 @@ public class ExportIMSCP implements ResourceProvider {
             JSONObject structure = new JSONObject((String)content.getProperty("structure0"));
             Manifest manifest = getManifest(structure, content, contentManager);
             zipFile = getZipFile(manifest, content, poolId, contentManager);
-            InputStream input = new FileInputStream(zipFile.getAbsolutePath());
-            String filename = (String)content.getProperty(FilesConstants.POOLED_CONTENT_FILENAME) + ".zip";
-            contentManager.writeBody(poolId + "/" + filename, input);
-            content = contentManager.get(poolId + "/" + filename);
-            content.setProperty(Content.MIMETYPE_FIELD, "application/zip");
-            contentManager.update(content);
-            Session userSession = JackrabbitSparseUtils.getSparseSession(resourceResolver
-                .adaptTo(javax.jcr.Session.class));
-            
-            cpr = new SparseContentResource(content, userSession,
-                resourceResolver, "/p/" + poolId + "/" + filename);
-            cpr.getResourceMetadata().put(CONTENT_RESOURCE_PROVIDER, this);
-            
-            LOGGER.debug("Resolved {} as {} ", path, cpr);
-            input.close();
+            InputStream input = null;
+            try {
+              input = new FileInputStream(zipFile.getAbsolutePath());
+              String filename = (String)content.getProperty(FilesConstants.POOLED_CONTENT_FILENAME) + ".zip";
+              contentManager.writeBody(poolId + "/" + filename, input);
+              content = contentManager.get(poolId + "/" + filename);
+              content.setProperty(Content.MIMETYPE_FIELD, "application/zip");
+              contentManager.update(content);
+              Session userSession = JackrabbitSparseUtils.getSparseSession(resourceResolver
+                  .adaptTo(javax.jcr.Session.class));
+              
+              cpr = new SparseContentResource(content, userSession,
+                  resourceResolver, "/p/" + poolId + "/" + filename);
+              cpr.getResourceMetadata().put(CONTENT_RESOURCE_PROVIDER, this);
+              
+              LOGGER.debug("Resolved {} as {} ", path, cpr);
+            } finally {
+              if (input != null) {
+                input.close();
+              }
+            }
           }
         }
       }

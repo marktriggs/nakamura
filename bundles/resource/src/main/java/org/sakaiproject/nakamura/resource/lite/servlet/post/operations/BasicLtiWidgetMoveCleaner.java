@@ -50,7 +50,7 @@ public class BasicLtiWidgetMoveCleaner extends AbstractBasicLtiCleaner {
   protected Repository repository;
   
   @Override
-  public List<Modification> doClean(String widgetFromPath, String widgetToPath, ContentManager cm)
+  public List<Modification> doClean(String widgetFromPath, String widgetToPath, Session session)
       throws StorageClientException, AccessDeniedException {
     List<Modification> modifications = new LinkedList<Modification>();
     LOGGER.debug("Cleaning a BasicLTI widget after move from '{}' to '{}'", widgetFromPath, widgetToPath);
@@ -62,8 +62,10 @@ public class BasicLtiWidgetMoveCleaner extends AbstractBasicLtiCleaner {
     try {
       adminSession = repository.loginAdministrative();
       ContentManager adminContentManager = adminSession.getContentManager();
-      List<ActionRecord> moves = adminContentManager.move(ltiKeyFromPath, ltiKeyToPath);
-      keysWereMoved = (moves != null && !moves.isEmpty());
+      if (adminContentManager.exists(ltiKeyFromPath)) {
+        List<ActionRecord> moves = adminContentManager.move(ltiKeyFromPath, ltiKeyToPath, true);
+        keysWereMoved = (moves != null && !moves.isEmpty());
+      }
     } finally {
       if (adminSession != null) {
         adminSession.logout();

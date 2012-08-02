@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>base</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
   <artifactId>org.sakaiproject.nakamura.smtp</artifactId>
@@ -32,7 +32,7 @@
           <instructions>
             <Bundle-Category> sakai-nakamura </Bundle-Category>
             <Private-Package> org.sakaiproject.nakamura.smtp.*  </Private-Package>
-            <Import-Package>!org.subethamail.smtp.*,!junit.framework,*</Import-Package>
+            <Import-Package>!junit.framework,*</Import-Package>
             <Embed-Dependency>subethasmtp</Embed-Dependency>
           </instructions>
         </configuration>
@@ -88,7 +88,7 @@
     <dependency>
       <groupId>org.sakaiproject.nakamura</groupId>
       <artifactId>org.sakaiproject.nakamura.messaging</artifactId>
-      <version>1.3.0</version>
+      <version>1.4.0</version>
       <scope>provided</scope>
     </dependency>
     <dependency>

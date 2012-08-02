@@ -121,7 +121,7 @@ public class ExternalDocumentProxyServlet extends SlingSafeMethodsServlet {
       try {
         // Get actual content.
         ExternalDocumentResult result = processor.getDocument(node, path);
-        InputStream in = result.getDocumentInputStream(0, session.getUserID());
+        InputStream in = result.getDocumentInputStream(session.getUserID());
 
         // FIXME: what about content type and encoding ?
         

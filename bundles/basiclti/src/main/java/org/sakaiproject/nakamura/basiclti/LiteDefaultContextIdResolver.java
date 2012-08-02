@@ -17,6 +17,8 @@
  */
 package org.sakaiproject.nakamura.basiclti;
 
+import static org.sakaiproject.nakamura.basiclti.LiteBasicLTIServletUtils.getNodePath;
+
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Service;
@@ -29,9 +31,6 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.content.Content;
-import org.sakaiproject.nakamura.api.lite.Session;
-import org.sakaiproject.nakamura.api.lite.StorageClientException;
-import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -77,7 +76,7 @@ public class LiteDefaultContextIdResolver implements LiteBasicLTIContextIdResolv
     final AuthorizableManager authManager = session.getAuthorizableManager();
 
     // default return value
-    String contextId = node.getPath();
+    String contextId = getNodePath(node);
 
     // check the alternate key for a context ID
     if (node.hasProperty(key)) {

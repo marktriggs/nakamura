@@ -1,21 +1,13 @@
 {
   "sling:resourceType": "sakai/solr-search",
-  "sakai:query-template": "resourceType:authorizable",
-  "sakai:query-template-options": {
-      "fq": ["type:u", "resourceType:authorizable"],
-      "sort": "${sortOn} ${sortOrder}",
-      "facet" : true,
-      "facet.field" : "tagname",
-      "facet.mincount" : 1
-  },
-  "sakai:query-template-defaults": {
-    "sortOn": "score",
-    "sortOrder": "desc"
-  },
-  "sakai:batchresultprocessor": "ProfileContacts",
-  "sakai:title": "Users - All",
-  "sakai:shortDescription": "Get the profile of each user.",
+  "sakai:query-template": "${_q}",
+  "sakai:propertyprovider": "UsersSearchQueryHandler",
+  "sakai:resultprocessor": "UsersSearchQueryHandler",
+  "sakai:title": "Users - All - DEPRECATED",
+  "sakai:shortDescription": "DEPRECATED - instead call users.json with no 'q' parameter.",
   "sakai:parameters" : [
+    "{\"name\" : \"tags\", \"description\" : \"Only match people tagged with these values. These are tag IDs, not the displayed tag text.\"}",
+    "{\"name\" : \"fullprofile\", \"description\" : \"True if you also want to search non-basic profile properties.\"}",
     "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. The default is score\"}",
     "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'asc' or 'desc'.\"}"
   ],

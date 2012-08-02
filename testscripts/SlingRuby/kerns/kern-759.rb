@@ -49,7 +49,7 @@ class TC_Kern759Test < Test::Unit::TestCase
     res = @s.execute_get(@s.url_for(Group.url_for(contactsgroup.name) + ".json"))
     assert_equal("404",res.code, res.body)
     res = contactsgroup.update_properties(@s, { "testing" => "Should Fail to Update" } )
-    assert_equal("500",res.code, res.body)
+    assert_equal("404",res.code, res.body)
 
     @s.switch_user(viewer)
     #@s.debug = true

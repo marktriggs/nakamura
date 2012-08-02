@@ -1,6 +1,7 @@
 {
-  "sakai:query-template": "messagestore:${_userMessagePath} AND resourceType:sakai/message AND messagebox:(${box})${_categoryClause}",
+  "sakai:query-template": "messagestore:${_userMessagePath}",
   "sakai:query-template-options": {
+      "fq": "resourceType:sakai/message AND messagebox:(${box})${_categoryClause}",
       "sort": "${sortOn} ${sortOrder}"
   },
   "sakai:query-template-defaults": {

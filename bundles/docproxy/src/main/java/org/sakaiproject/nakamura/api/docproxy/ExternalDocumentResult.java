@@ -39,6 +39,22 @@ public interface ExternalDocumentResult extends ExternalDocumentResultMetadata {
    *         responsible for closing the input stream once it has been retrieved. The
    *         implementation is responsible for managing the stream if it is not retrieved.
    *         Ideally the implementation will not create the stream if its not requested.
+   * 
+   * @deprecated Deprecated in 1.4. There is no longer support for {@code startingAt}. Use
+   *             {@link #getDocumentInputStream(String)} and skip manually if necessary.
    */
   public InputStream getDocumentInputStream(long startingAt, String userId) throws DocProxyException;
+  
+  /**
+   * @param userId
+   *          the id of the user requesting the external document, for authorization purposes
+   *          
+   * @return an input stream that contains the body of the document. The caller is
+   *         responsible for closing the input stream once it has been retrieved. The
+   *         implementation is responsible for managing the stream if it is not retrieved.
+   *         Ideally the implementation will not create the stream if its not requested.
+   *         
+   * @throws DocProxyException
+   */
+  public InputStream getDocumentInputStream(String userId) throws DocProxyException;
 }

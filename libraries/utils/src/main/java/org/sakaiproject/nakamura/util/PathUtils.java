@@ -415,18 +415,22 @@ public class PathUtils {
     }
     return null;
   }
-  public static String toUserContentPath(String path ) {
-    if ( path.startsWith("/~")) {
-      return "a:"+path.substring(2);
-    } else if ( path.startsWith("/p/")) {
-      return path.substring(3);
-    } else if ( path.startsWith("/user/")) {
-      return "a:"+path.substring(6);
-    } else if ( path.startsWith("/group/")) {
-      return "a:"+path.substring(7);
-    } else {
-      return path;
+
+  public static String toUserContentPath(String path) {
+    if (path != null) {
+      if (path.startsWith("/~")) {
+        return "a:" + path.substring(2);
+      } else if (path.startsWith("/p/")) {
+        return path.substring(3);
+      } else if (path.startsWith("/user/")) {
+        return "a:" + path.substring(6);
+      } else if (path.startsWith("/group/")) {
+        return "a:" + path.substring(7);
+      } else {
+        return path;
+      }
     }
+    return null;
   }
 
 }

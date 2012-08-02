@@ -14,6 +14,7 @@ require "cgi"
 Dir.chdir(File.dirname(__FILE__))
 MAIN_DIR = Dir.getwd
 DOCS_DIR = "#{MAIN_DIR}/docs"
+PDFS_DIR = "#{MAIN_DIR}/pdfs"
 PREV_DIR = "#{MAIN_DIR}/previews"
 LOGS_DIR = "#{MAIN_DIR}/logs"
 
@@ -52,11 +53,11 @@ def resize_and_write_file(filename, filename_output, max_width, max_height = nil
     max_height = img_height / ratio
   end
 
-  img_ratio = img_width.to_f / img_height.to_f
-  img_ratio > ratio ? scale_ratio = max_width.to_f / img_width : scale_ratio = max_height.to_f / img_height
-  pic.resize_to_fit!(max_width, scale_ratio * img_height)
-
-  pic.write filename_output
+  pic.change_geometry!("#{max_width}x#{max_height}>") { |cols, rows, img|
+    img.resize_to_fit!(cols, rows)
+    img.write filename_output
+    img.destroy!
+  }
 
   nbytes, content = File.size(filename_output), nil
   File.open(filename_output, "rb") { |f| content = f.read nbytes }
@@ -67,6 +68,27 @@ end
 # this method determines if we should process this as an image.
 def process_as_image?(extension)
   ['.png', '.jpg', '.gif', '.psd', '.jpeg'].include? extension
+end
+
+# GIF/PNG files should generate thumbnails with their according extension
+# JPG/JPEG/PSD files should use the .jpg extension
+def output_extension(extension)
+  if extension == ".gif" || extension == ".png"
+    extension
+  else
+    ".jpg"
+  end
+end
+
+# Give back the correct mimetype for an extension
+def related_mimetype(extension)
+  if extension == ".gif"
+    "image/gif"
+  elsif extension == ".png"
+    "image/png"
+  else
+    "image/jpeg"
+  end
 end
 
 # HTML pages only need the first "page"
@@ -124,11 +146,17 @@ end
 
 # Post the file to the server.
 # 1 based index! (necessity for the docpreviewer 3akai-ux widget), e.g: id.pagex-large.jpg
-def post_file_to_server id, content, size, page_count
-  @s.execute_file_post @s.url_for("system/pool/createfile.#{id}.page#{page_count}-#{size}"), "thumbnail", "thumbnail", content, "image/jpeg"
-  alt_url = @s.url_for("p/#{id}/page#{page_count}.#{size}.jpg")
+def post_file_to_server id, content, size, page_count, extension = ".jpg"
+
+  @s.execute_file_post @s.url_for("system/pool/createfile.#{id}.page#{page_count}-#{size}"), "thumbnail", "thumbnail", content, related_mimetype(extension)
+  alt_url = @s.url_for("p/#{id}/page#{page_count}.#{size}" + extension)
   @s.execute_post alt_url, {"sakai:excludeSearch" => true}
   log "Uploaded image to curl #{alt_url}"
+end
+
+def post_pdf_to_server id, content
+  @s.execute_file_post @s.url_for("system/pool/createfile.#{id}.#{id}-processed"), "thumbnail", "thumbnail", content, "application/pdf"
+  log @s.url_for("p/#{id}/#{id}.processed.pdf")
 end
 
 @loggers = []
@@ -230,6 +258,7 @@ def main()
   # Create some temporary directories.
   Dir.mkdir DOCS_DIR unless File.directory? DOCS_DIR
   Dir.mkdir PREV_DIR unless File.directory? PREV_DIR
+  Dir.mkdir PDFS_DIR unless File.directory? PDFS_DIR
 
   # Create a temporary file in the DOCS_DIR for all the pending files and outputs all the filenames in the terminal.
   Dir.chdir DOCS_DIR
@@ -273,14 +302,15 @@ def main()
         File.open(filename, 'wb') { |f| f.write content_file.body }
 
         if process_as_image? extension
+          extension = output_extension extension
           page_count = 1
-          filename_thumb = 'thumb.jpg'
+          filename_thumb = 'thumb' + extension
 
           content = resize_and_write_file filename, filename_thumb, 900
-          post_file_to_server id, content, :normal, page_count
+          post_file_to_server id, content, :normal, page_count, extension
 
           content = resize_and_write_file filename, filename_thumb, 180, 225
-          post_file_to_server id, content, :small, page_count
+          post_file_to_server id, content, :small, page_count, extension
 
           FileUtils.rm_f DOCS_DIR + "/#{filename_thumb}"
         else
@@ -367,12 +397,66 @@ def main()
 
           FileUtils.remove_dir PREV_DIR + "/#{id}"
         end
-
         # Pass on the page_count
         @s.execute_post @s.url_for("p/#{id}"), {"sakai:pagecount" => page_count, "sakai:hasPreview" => "true"}
 
         # Change to the documents directory otherwise we won't find the next file.
         Dir.chdir DOCS_DIR
+      end
+
+      #SAKAI TO PDF
+      # We check if mimetype is sakaidoc
+      if(mime_type == "x-sakai/document")
+        if (File.exist?("../wkhtmltopdf"))
+          # Go to PDF Dir
+          Dir.chdir PDFS_DIR
+
+          #delay in secs
+          $delay = "20"
+
+          #filename with extension
+          filename_p = id + ".pdf"
+
+          # We parse the structure data to var structure (we do not need the rest)
+          structure = JSON.parse meta['structure0']
+
+          # Create var and add beginning of code line to run
+          line = "../wkhtmltopdf "
+
+          # Go through structure and add the pagelink for each page id
+          structure.each do |page|
+            link = "content#l=" + page[0] + "&p=" + id
+            link = @s.url_for(link)
+            link = "'" + link + "' "
+            line += link
+          end
+
+          # Fetch cookie value to get access to all content
+          # USERNAME PASSWORD SERVER
+          $username = "admin"
+          auth = "../auth.sh " + $username + " " + $pw + " " + $preview_referer
+          cookietoken = `#{auth}`
+
+          # Append end of line containing arguments for print css, delay and authentication
+          line += filename_p + " --print-media-type --redirect-delay " + $delay + "000 --cookie 'sakai-trusted-authn' " + cookietoken
+
+          # Run the command line (run wkhtmltopdf)
+          `#{line}`
+
+          # We read the content from the pdf in the PDF directory
+          content = open(filename_p, 'rb') { |f| f.read }
+
+          # We post it to server through this function
+          post_pdf_to_server id, content
+          @s.execute_post @s.url_for("p/#{id}"), {"sakai:processing_failed" => "false"}
+          #Change dir
+          Dir.chdir DOCS_DIR
+        else
+          @s.execute_post @s.url_for("p/#{id}"), {"sakai:processing_failed" => "true"}
+          log "PDF Converter (wkhtmltopdf) not present in directory"
+          log "Cannot convert Sakai document to PDF"
+          log "Continuing without conversion"
+        end
       end
     rescue Exception => msg
       # Output a timestamp + the error message whenever an exception is raised
@@ -386,6 +470,7 @@ def main()
     end
   end
 
+  FileUtils.remove_dir PDFS_DIR
   FileUtils.remove_dir PREV_DIR
   FileUtils.remove_dir DOCS_DIR
 end
@@ -408,6 +493,7 @@ if opt['help'] || ( not(opt['server'] && opt['password']) )
   usage()
 else
   setup(opt['server'], opt['password'])
+  $pw = opt['password']
   $preview_referer = opt['server']
   interval = opt['interval'] || 15
   interval = Integer(interval)

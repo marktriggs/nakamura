@@ -1,25 +1,14 @@
 {
   "sling:resourceType": "sakai/solr-search",
-  "sakai:query-template": "(name:(${q}) OR firstName:(${q}) OR lastName:(${q}) OR email:(${q}) OR title:(${q}) OR ngram:(${q}) OR edgengram:(${q}) OR tag:(${q})${_fullProfileOr}) ${_tags}",
-  "sakai:query-template-options": {
-      "fq": ["type:u", "resourceType:(authorizable OR profile)"],
-      "sort": "${sortOn} ${sortOrder}",
-      "group": true,
-      "group.field": "returnpath",
-      "facet" : true,
-      "facet.field" : "tagname",
-      "facet.mincount" : 1
-  },
-  "sakai:query-template-defaults": {
-    "sortOn": "score",
-    "sortOrder": "desc"
-  },
-  "sakai:propertyprovider": ["FullProfile","TagRefined"],
-  "sakai:batchresultprocessor": "ProfileContacts",
+  "sakai:query-template": "${_q}",
+  "sakai:propertyprovider": "UsersSearchQueryHandler",
+  "sakai:resultprocessor": "UsersSearchQueryHandler",
   "sakai:title": "Users",
   "sakai:shortDescription": "Get the profiles of select users.",
   "sakai:parameters" : [
-    "{\"name\" : \"q\", \"description\" : \"The term you want to match against. This will match any property on the user profile\"}",
+    "{\"name\" : \"q\", \"description\" : \"The text you want to match against the basic user profiles. If empty, all people are browsed.\"}",
+    "{\"name\" : \"tags\", \"description\" : \"Only match people tagged with these values. These are tag IDs, not the displayed tag text.\"}",
+    "{\"name\" : \"fullprofile\", \"description\" : \"True if you also want to search non-basic profile properties.\"}",
     "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. The default is score\"}",
     "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'asc' or 'desc'.\"}"
   ],
@@ -27,6 +16,6 @@
     "Get the profile of select users filtered by the provided query term."
   ],
   "sakai:response": [
-    "Doing a standard query searching for all profiles matching 'simong'.<br /> Example: Request to: /var/search/users.json?q=simong<br /><pre class=\"json\">{\n    \"query\": \"//*[@sling:resourceType=\"sakai/user-profile\" and jcr:contains(.,\"simong\")]\",\n    \"items\": 25,\n    \"total\": 1,\n    \"results\": [\n        {\n            \"picture\": \"{\"name\":\"256x256_profilepicture\",\"_name\":\"profilepicture\"}\",\n            \"email\": [\n                \"gaeremyncks@gmail.com\"\n            ],\n            \"firstName\": [\n                \"Simon\"\n            ],\n            \"sling:resourceType\": \"sakai/user-profile\",\n            \"jcr:created\": \"2009-11-30T16:23:18\",\n            \"rep:userId\": [\n                \"simong\"\n            ],\n            \"lastName\": [\n                \"Gaeremynck\"\n            ],\n            \"jcr:primaryType\": \"sling:Folder\",\n            \"jcr:uuid\": [\n                \"1295479e-c673-46cc-a63c-52c6d19f4b44\"\n            ]\n        }\n    ]\n}</pre>"
+    "Doing a standard query searching for all profiles matching 'jane'.<br /> Example: Request to: /var/search/users.json?q=jane<br /><pre class=\"json\">{\n  \"items\": 25,\n  \"results\": [{\n      \"hash\": \"inst\",\n      \"basic\": {\n        \"access\": \"everybody\",\n        \"elements\": {\n          \"sakai:tags\": {\n            \"value\": [\n              \"directory/europeanlanguagesliteratureandrelatedsubjects/germanstudies\"\n            ]\n          },\n          \"lastName\": {\n            \"value\": \"Inst\"\n          },\n          \"preferredName\": {\n            \"value\": \"Doctor Inst\"\n          },\n          \"email\": {\n            \"value\": \"inst@example.edu\"\n          },\n          \"role\": {\n            \"value\": \"academic_staff\"\n          },\n          \"firstName\": {\n            \"value\": \"Jane\"\n          }\n        }\n      },\n      \"rep:userId\": \"inst\",\n      \"userid\": \"inst\",\n      \"counts\": {\n        \"contentCount\": 0,\n        \"countLastUpdate\": 1338670236178,\n        \"contactsCount\": 0,\n        \"membershipsCount\": 0\n      },\n      \"sakai:excludeSearch\": false,\n      \"homePath\": \"/~inst\",\n      \"user\": \"inst\",\n      \"sakai:status\": \"offline\",\n      \"sakai:location\": \"none\"\n    },{\n      \"hash\": \"stu\",\n      \"basic\": {\n        \"access\": \"everybody\",\n        \"elements\": {\n          \"lastName\": {\n            \"value\": \"Studen\"\n          },\n          \"email\": {\n            \"value\": \"stu@example.edu\"\n          },\n          \"firstName\": {\n            \"value\": \"Mary Jane\"\n          }\n        }\n      },\n      \"rep:userId\": \"stu\",\n      \"userid\": \"stu\",\n      \"counts\": {\n        \"contentCount\": 0,\n        \"countLastUpdate\": 1338670236202,\n        \"contactsCount\": 0,\n        \"membershipsCount\": 0\n      },\n      \"sakai:excludeSearch\": false,\n      \"homePath\": \"/~stu\",\n      \"user\": \"stu\",\n      \"sakai:status\": \"offline\",\n      \"sakai:location\": \"none\"\n    }\n  ],\n  \"facet_fields\": [{\n      \"tagname\": [{\n          \"directory/europeanlanguagesliteratureandrelatedsubjects/germanstudies\": 1\n        }\n      ]\n    }\n  ],\n  \"total\": 2\n}</pre>"
   ]
 }

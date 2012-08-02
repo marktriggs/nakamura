@@ -37,131 +37,130 @@ import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.search.solr.Query;
 import org.sakaiproject.nakamura.api.search.solr.Result;
+import org.sakaiproject.nakamura.api.search.solr.ResultSetFactory;
+import org.sakaiproject.nakamura.api.search.solr.SolrSearchBatchResultProcessor;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchException;
-import org.sakaiproject.nakamura.api.search.solr.SolrSearchResultProcessor;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchResultSet;
-import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 import org.sakaiproject.nakamura.util.PathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Iterator;
 import java.util.Map;
 
 @Component(immediate = true, metatype = true)
-@Service(value = SolrSearchResultProcessor.class)
-@Properties(value = { @Property(name = "service.vendor", value = "The Sakai Foundation"),
-    @Property(name =  SolrSearchConstants.REG_PROCESSOR_NAMES, value = "AllActivities") })
-public class LiteAllActivitiesResultProcessor implements SolrSearchResultProcessor {
+@Service(value = SolrSearchBatchResultProcessor.class)
+@Properties(value = {@Property(name = "service.vendor", value = "The Sakai Foundation"),
+    @Property(name = SolrSearchConstants.REG_BATCH_PROCESSOR_NAMES, value = "AllActivities")})
+public class LiteAllActivitiesResultProcessor implements SolrSearchBatchResultProcessor {
 
 
   private static final Logger LOGGER = LoggerFactory
       .getLogger(LiteAllActivitiesResultProcessor.class);
 
-  @Reference
-  protected SolrSearchServiceFactory searchServiceFactory;
+  @Reference(target = "(type=solr-unsecured)")
+  protected ResultSetFactory resultSetFactory;
 
   @Reference
   protected BasicUserInfoService basicUserInfoService;
 
-  public void writeResult(SlingHttpServletRequest request, JSONWriter write, Result result)
-      throws JSONException {
+  @Override
+  public void writeResults(SlingHttpServletRequest request, JSONWriter write, Iterator<Result> iterator) throws JSONException {
     Session session = StorageClientUtils.adaptToSession(request.getResourceResolver()
         .adaptTo(javax.jcr.Session.class));
     try {
       ContentManager contentManager = session.getContentManager();
       AuthorizableManager authorizableManager = session.getAuthorizableManager();
-      String path = result.getPath();
-      Content activityNode = contentManager.get(path);
-      if (activityNode != null ) {
-        String sourcePath = (String) activityNode.getProperty(ActivityConstants.PARAM_SOURCE);
-        LOGGER.info("Processing {} {} Source = {} ",new Object[]{path, activityNode.getProperty(JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY), sourcePath });
-        Content contentNode = null;
+
+      while (iterator.hasNext()) {
+        Result result = iterator.next();
+
+        String path = result.getPath();
+        Content activityNode;
         try {
-          contentNode = contentManager.get(sourcePath);
-        } catch ( AccessDeniedException e ) {
-          LOGGER.debug(e.getMessage(),e);
-        }
-        write.object();
-        if ( contentNode != null ) {
-          ExtendedJSONWriter.writeValueMapInternals(write, contentNode.getProperties());
-          ExtendedJSONWriter.writeValueMapInternals(write, StorageClientUtils.getFilterMap(
-              activityNode.getProperties(), null, null, contentNode.getProperties().keySet(), true));
-        } else {
-          write.key("_sourceMissing");
-          write.value(true);
-          ExtendedJSONWriter.writeValueMapInternals(write, activityNode.getProperties());
-        }
-        write.key("who");
-        write.object();
-        try {
-          ExtendedJSONWriter.writeValueMapInternals(write, basicUserInfoService
-              .getProperties(authorizableManager.findAuthorizable((String) activityNode
-                  .getProperty(ActivityConstants.PARAM_ACTOR_ID))));
+          activityNode = contentManager.get(path);
         } catch (AccessDeniedException e) {
-          LOGGER.debug(e.getMessage(), e);
+          LOGGER.debug("Activity node at " + path + " is not readable by " + session.getUserId());
+          continue;
         }
-        write.endObject();
-        if (contentNode != null) {
-          // KERN-1867 Activity feed should return more data about a group
-          if ("sakai/group-home".equals(contentNode.getProperty("sling:resourceType"))) {
-            try {
-              final Authorizable group = authorizableManager.findAuthorizable(PathUtils
-                      .getAuthorizableId(contentNode.getPath()));
-              final Map<String, Object> basicUserInfo = basicUserInfoService
-                      .getProperties(group);
-              if (basicUserInfo != null) {
-                write.key("profile");
-                ExtendedJSONWriter.writeValueMap(write, basicUserInfo);
-              }
-            } catch (AccessDeniedException e) {
-              LOGGER.debug(e.getMessage(), e);
-            }
+        if (activityNode != null) {
+          String sourcePath = (String) activityNode.getProperty(ActivityConstants.PARAM_SOURCE);
+          LOGGER.debug("Processing {} {} Source = {} ", new Object[]{path, activityNode.getProperty(JcrResourceConstants.SLING_RESOURCE_TYPE_PROPERTY), sourcePath});
+          Content contentNode;
+          try {
+            contentNode = contentManager.get(sourcePath);
+          } catch (AccessDeniedException e) {
+            LOGGER.debug("Activity source at " + sourcePath + " is not readable by " + session.getUserId());
+            continue;
           }
-          // KERN-1864 Return comment in activity feed
-          if ("sakai/pooled-content".equals(contentNode.getProperty("sling:resourceType"))) {
-            if ("CONTENT_ADDED_COMMENT".equals(activityNode.getProperty("sakai:activityMessage"))) {
-              // expecting param ActivityConstants.PARAM_SOURCE to contain the path
-              // from the content node to the comment node for this activity.
-              if (activityNode.hasProperty(ActivityConstants.PARAM_SOURCE)) {
-                String sakaiActivitySource = (String) activityNode.getProperty(ActivityConstants.PARAM_SOURCE);
-                if (sakaiActivitySource != null ) {
-                  // confirm comment path is related to the current content node.
-                  if (sakaiActivitySource.startsWith(contentNode.getPath())) {
-                    Content commentNode = contentManager.get(sakaiActivitySource);
-                    if (commentNode != null) {
-                      write.key("sakai:comment-body");
-                      write.value(commentNode.getProperty("comment"));
-                    }
-                  }
+          write.object();
+          if (contentNode != null) {
+            ExtendedJSONWriter.writeValueMapInternals(write, contentNode.getProperties());
+            ExtendedJSONWriter.writeValueMapInternals(write, StorageClientUtils.getFilterMap(
+                activityNode.getProperties(), null, null, contentNode.getProperties().keySet(), true));
+          } else {
+            write.key("_sourceMissing");
+            write.value(true);
+            ExtendedJSONWriter.writeValueMapInternals(write, activityNode.getProperties());
+          }
+          write.key("who");
+          write.object();
+          try {
+            ExtendedJSONWriter.writeValueMapInternals(write, basicUserInfoService
+                .getProperties(authorizableManager.findAuthorizable((String) activityNode
+                    .getProperty(ActivityConstants.PARAM_ACTOR_ID))));
+          } catch (AccessDeniedException e) {
+            LOGGER.debug(e.getMessage(), e);
+          }
+          write.endObject();
+          if (contentNode != null) {
+            // KERN-1867 Activity feed should return more data about a group
+            if ("sakai/group-home".equals(contentNode.getProperty("sling:resourceType"))) {
+              try {
+                final Authorizable group = authorizableManager.findAuthorizable(PathUtils
+                    .getAuthorizableId(contentNode.getPath()));
+                final Map<String, Object> basicUserInfo = basicUserInfoService
+                    .getProperties(group);
+                if (basicUserInfo != null) {
+                  write.key("profile");
+                  ExtendedJSONWriter.writeValueMap(write, basicUserInfo);
                 }
+              } catch (AccessDeniedException e) {
+                LOGGER.debug(e.getMessage(), e);
+              }
+            }
+            // KERN-1864 Return comment in activity feed
+            if ("sakai/pooled-content".equals(contentNode.getProperty("sling:resourceType"))) {
+              if ("CONTENT_ADDED_COMMENT".equals(activityNode.getProperty("sakai:activityMessage"))) {
+                write.key("sakai:comment-body");
+                write.value(contentNode.getProperty("comment"));
               }
             }
           }
+          write.endObject();
+        } else {
+          ExtendedJSONWriter.writeValueMap(write, result.getProperties());
         }
-        write.endObject();
-      } else {
-        ExtendedJSONWriter.writeValueMap(write, result.getProperties());
       }
-    } catch (AccessDeniedException e) {
-      LOGGER.debug(e.getMessage(), e);
+
     } catch (StorageClientException e) {
-      LOGGER.warn(e.getMessage(), e);
+      LOGGER.error(e.getMessage(), e);
     }
   }
 
   /**
    * {@inheritDoc}
-   * 
+   *
    * @see org.sakaiproject.nakamura.api.search.solr.SolrSearchBatchResultProcessor#getSearchResultSet(org.apache.sling.api.SlingHttpServletRequest,
    *      org.sakaiproject.nakamura.api.search.solr.Query)
    */
   public SolrSearchResultSet getSearchResultSet(SlingHttpServletRequest request,
-      Query query) throws SolrSearchException {
+                                                Query query) throws SolrSearchException {
 
-    return searchServiceFactory.getSearchResultSet(request, query);
+    return resultSetFactory.processQuery(request, query, false);
   }
 
 }

@@ -28,6 +28,7 @@ import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.sakaiproject.nakamura.api.connections.ConnectionManager;
 import org.sakaiproject.nakamura.api.connections.ConnectionState;
 import org.sakaiproject.nakamura.api.files.FilesConstants;
 import org.sakaiproject.nakamura.api.lite.Session;
@@ -74,17 +75,20 @@ import java.util.regex.Pattern;
 @Properties({
     @Property(name = "service.vendor", value = "The Sakai Foundation"),
     @Property(name = "sakai.search.provider", value = "RelatedContentSearchPropertyProvider") })
-public class RelatedContentSearchPropertyProvider extends
-    MeManagerViewerSearchPropertyProvider implements SolrSearchPropertyProvider {
+public class RelatedContentSearchPropertyProvider implements SolrSearchPropertyProvider {
 
   private static final Logger LOG = LoggerFactory
       .getLogger(RelatedContentSearchPropertyProvider.class);
 
   private static final String DEFAULT_SEARCH_PROC_TARGET = "(&("
       + SolrSearchResultProcessor.DEFAULT_PROCESSOR_PROP + "=true))";
+  
   @Reference(target = DEFAULT_SEARCH_PROC_TARGET)
   private transient SolrSearchResultProcessor defaultSearchProcessor;
 
+  @Reference
+  ConnectionManager connectionManager;
+  
   private static final int MAX_SOURCE_LIMIT = 100;
 
   /**
@@ -128,7 +132,7 @@ public class RelatedContentSearchPropertyProvider extends
 
     /* phase one - find source content to match against */
 
-    final String user = super.getUser(request);
+    final String user = SearchRequestUtils.getUser(request);
     if (User.ANON_USER.equals(user)) {
       // stop here, anonymous is not a manager or a viewer of anything
       return;
@@ -136,7 +140,7 @@ public class RelatedContentSearchPropertyProvider extends
 
     final Session session = StorageClientUtils.adaptToSession(request
         .getResourceResolver().adaptTo(javax.jcr.Session.class));
-    final Set<String> managers = super.getPrincipals(session, user, 1);
+    final Set<String> managers = SearchRequestUtils.getPrincipals(session, user, 1);
     final Set<String> viewers = new HashSet<String>(managers);
 
     final StringBuilder sourceQuery = new StringBuilder(

@@ -22,26 +22,20 @@ import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.INFI
 import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.PARAMS_ITEMS_PER_PAGE;
 import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.PARAMS_PAGE;
 import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.TIDY;
-import org.sakaiproject.nakamura.api.search.solr.SolrSearchException;
 
-import org.sakaiproject.nakamura.api.search.SearchUtil;
+import org.apache.commons.lang.StringUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.request.RequestParameter;
+import org.sakaiproject.nakamura.api.search.SearchUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.commons.lang.StringUtils;
-
-
-import java.util.Map;
-import java.util.List;
-import java.util.Collection;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
-
-
-import javax.jcr.query.Query;
+import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -67,8 +61,7 @@ public class SolrSearchUtil {
       page = SolrSearchUtil.longRequestParameter(request, PARAMS_PAGE, 0);
     }
     long offset = page * nitems;
-    long resultSize = Math.max(nitems, offset);
-    return new long[]{offset, resultSize };
+    return new long[]{offset, nitems };
   }
 
 
@@ -95,48 +88,6 @@ public class SolrSearchUtil {
       }
     }
     return defaultVal;
-  }
-
-  /**
-   * Get the starting point.
-   *
-   * @param request
-   * @param total
-   * @return
-   */
-  public static long getPaging(SlingHttpServletRequest request) {
-
-    long nitems = longRequestParameter(request, PARAMS_ITEMS_PER_PAGE,
-        DEFAULT_PAGED_ITEMS);
-    long offset = longRequestParameter(request, PARAMS_PAGE, 0) * nitems;
-
-    return offset;
-  }
-
-  /**
-   * Assumes value is the value of a parameter in a where constraint and escapes it
-   * according to the spec.
-   *
-   * @param value
-   * @param queryLanguage
-   *          The language to escape for. This can be XPATH, SQL, JCR_SQL2 or JCR_JQOM.
-   *          Look at {@link Query Query}.
-   * @return
-   */
-  @SuppressWarnings("deprecation") // Suppressed because we need to check depreciated methods just in case.
-  public static String escapeString(String value, String queryLanguage) {
-    String escaped = null;
-    if (value != null) {
-      if (queryLanguage.equals(Query.XPATH) || queryLanguage.equals(Query.SQL)
-          || queryLanguage.equals(Query.JCR_SQL2) || queryLanguage.equals(Query.JCR_JQOM)) {
-        // See JSR-170 spec v1.0, Sec. 6.6.4.9 and 6.6.5.2
-        escaped = value.replaceAll("\\\\(?![-\"])", "\\\\\\\\").replaceAll("'", "\\\\'")
-            .replaceAll("'", "''").replaceAll("\"", "\\\\\"");
-      } else {
-        LOGGER.error("Unknown query language: " + queryLanguage);
-      }
-    }
-    return escaped;
   }
 
   public static int getTraversalDepth(SlingHttpServletRequest req) {

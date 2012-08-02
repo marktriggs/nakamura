@@ -97,7 +97,7 @@ public class SparsePostOperationServiceImpl implements SparsePostOperationServic
       for (Modification modification : changes) {
         for (CopyCleaner cleaner : copyCleaners) {
           List<Modification> currentCleanerChanges = cleaner.clean(modification.getSource(),
-              modification.getDestination(), contentManager);
+              modification.getDestination(), session);
           if (currentCleanerChanges != null) {
             copyChanges.addAll(currentCleanerChanges);
           }
@@ -134,7 +134,8 @@ public class SparsePostOperationServiceImpl implements SparsePostOperationServic
       for (MoveCleaner cleaner : moveCleaners) {
         for (Modification change : changes) {
           // consult each cleaner and collect the modifications
-          List<Modification> mods = cleaner.clean(change.getSource(), change.getDestination(), contentManager);
+          List<Modification> mods = cleaner.clean(change.getSource(), change.getDestination(),
+              session);
           if (mods != null) {
             moveChanges.addAll(mods);
           }
@@ -145,19 +146,19 @@ public class SparsePostOperationServiceImpl implements SparsePostOperationServic
     return changes;
   }
 
-  public void bindCopyCleaner(CopyCleaner cleaner) {
+  protected void bindCopyCleaner(CopyCleaner cleaner) {
     copyCleaners.add(cleaner);
   }
 
-  public void unbindCopyCleaner(CopyCleaner cleaner) {
+  protected void unbindCopyCleaner(CopyCleaner cleaner) {
     copyCleaners.remove(cleaner);
   }
   
-  public void bindMoveCleaner(MoveCleaner cleaner) {
+  protected void bindMoveCleaner(MoveCleaner cleaner) {
     moveCleaners.add(cleaner);
   }
 
-  public void unbindMoveCleaner(MoveCleaner cleaner) {
+  protected void unbindMoveCleaner(MoveCleaner cleaner) {
     moveCleaners.remove(cleaner);
   }
 }

@@ -17,6 +17,8 @@
  */
 package org.sakaiproject.nakamura.resource.lite.servlet.post;
 
+import org.apache.felix.scr.annotations.Activate;
+import org.apache.felix.scr.annotations.Deactivate;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
@@ -45,12 +47,9 @@ import org.sakaiproject.nakamura.resource.lite.servlet.post.helper.DefaultNodeNa
 import org.sakaiproject.nakamura.resource.lite.servlet.post.helper.MediaRangeList;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.CheckinOperation;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.CheckoutOperation;
-import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.CopyOperation;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.CreateTreeOperation;
-import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.DeleteOperation;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.ImportOperation;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.ModifyOperation;
-import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.MoveOperation;
 import org.sakaiproject.nakamura.resource.lite.servlet.post.operations.NopOperation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -169,11 +168,11 @@ public class SparsePostServlet extends SlingAllMethodsServlet {
     postOperations.put(SlingPostConstants.OPERATION_IMPORT, importOperation);
     postOperations.put("createTree", new CreateTreeOperation());
   }
-
+  
   @Override
   public void destroy() {
     modifyOperation = null;
-    postOperations.clear();
+    importOperation = null;
   }
 
   @Override
@@ -336,6 +335,7 @@ public class SparsePostServlet extends SlingAllMethodsServlet {
 
   // ---------- SCR Integration ----------------------------------------------
 
+  @Activate
   protected void activate(ComponentContext context) {
     synchronized (this.delayedPostProcessors) {
       this.componentContext = context;
@@ -377,6 +377,7 @@ public class SparsePostServlet extends SlingAllMethodsServlet {
     this.baseVersioningConfiguration = createBaseVersioningConfiguration(props);
   }
 
+  @Deactivate
   protected void deactivate(ComponentContext context) {
     dateParser = null;
     this.componentContext = null;

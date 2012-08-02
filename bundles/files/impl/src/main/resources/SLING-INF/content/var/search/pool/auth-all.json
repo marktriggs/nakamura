@@ -1,24 +1,15 @@
 {
-  "sakai:query-template": "resourceType:sakai/pooled-content ${_mimetype} AND ((manager:(${au}) OR editor:(${au}) OR viewer:(${au})) OR (showalways:true AND (manager:(${all}) OR editor:(${all}) OR viewer:(${all}))))${_q}",
-  "sakai:query-template-options": {
-      "sort": "${sortOn} ${sortOrder}",
-      "facet" : true,
-      "facet.field" : "tagname",
-      "facet.mincount" : 1
-  },
-  "sakai:query-template-defaults": {
-    "sortOn": "score",
-    "sortOrder": "desc",
-    "_q": ""
-  },
+  "sakai:query-template": "${_q}",
   "sling:resourceType": "sakai/solr-search",
-  "sakai:propertyprovider" : ["MeManagerViewer", "MimeMatch"],
-  "sakai:resultprocessor": "AllFiles",
+  "sakai:propertyprovider" : ["LibraryContentQueryHandler"],
+  "sakai:resultprocessor": "LibraryContentQueryHandler",
   "sakai:title": "Pooled Content - All by direct association",
   "sakai:shortDescription": "Search through all the pooled files for content that is directly associated to a given user.",
   "sakai:parameters" : [
-      "{\"name\" : \"au\", \"description\" : \"The username of the user who must be directly associated to the content (required)\"}",
-      "{\"name\" : \"all\", \"description\" : \"The username of the user who must be directly associated to the content when the 'showalways' property is true (required)\"}",
+      "{\"name\" : \"userid\", \"description\" : \"The user id of the user to search on behalf of. If omitted, the authenticated user will be used. If the user is anonymous, there will be an error.\"}",
+      "{\"name\" : \"q\", \"description\" : \"A general query to apply to the results\"}",
+      "{\"name\" : \"mimetype\", \"description\" : \"The mimetype of the document\"}",
+      "{\"name\" : \"levels\", \"description\" : \"The number of levels deep to recurse when discovering groups to which the user is associated.\"}",
       "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. Default is sakai:filename\"}",
       "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'ascending' or 'descending'.\"}"
   ]

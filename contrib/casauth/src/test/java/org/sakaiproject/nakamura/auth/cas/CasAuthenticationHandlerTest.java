@@ -42,13 +42,16 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.sakaiproject.nakamura.api.memory.Cache;
+import org.sakaiproject.nakamura.api.memory.CacheManagerService;
+import org.sakaiproject.nakamura.api.memory.CacheScope;
 
 import java.io.IOException;
 import java.util.HashMap;
 
-import javax.jcr.RepositoryException;
 import javax.jcr.SimpleCredentials;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -65,12 +68,22 @@ public class CasAuthenticationHandlerTest {
   @Mock
   HttpServletResponse response;
 
+  @Mock
+  CacheManagerService cacheManagerService;
+
+  @Mock
+  Cache<Object> cache;
+
   LocalTestServer server;
   HashMap<String, Object> props = new HashMap<String, Object>();
 
   @Before
-  public void setUp() throws RepositoryException {
+  public void setUp() throws Exception {
     authnHandler = new CasAuthenticationHandler();
+    when(
+        cacheManagerService.getCache(Matchers.anyString(),
+            Matchers.eq(CacheScope.CLUSTERREPLICATED))).thenReturn(cache);
+    authnHandler.cacheManagerService = cacheManagerService;
     authnHandler.modified(props);
   }
 
@@ -105,7 +118,7 @@ public class CasAuthenticationHandlerTest {
   public void dropCredentialsWithLogoutUrl() throws IOException {
     authnHandler.dropCredentials(request, response);
 
-    verify(request).setAttribute(Authenticator.LOGIN_RESOURCE, "http://localhost/cas/logout");
+    verify(response).sendRedirect("http://localhost/cas/logout");
   }
 
   @Test
@@ -114,7 +127,7 @@ public class CasAuthenticationHandlerTest {
 
     authnHandler.dropCredentials(request, response);
 
-    verify(request).setAttribute(Authenticator.LOGIN_RESOURCE, "http://localhost/cas/logout");
+    verify(response).sendRedirect("http://localhost/cas/logout");
   }
 
   @Test

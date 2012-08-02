@@ -173,6 +173,8 @@ public class ProfileIndexingHandler implements IndexingHandler {
     doc.setField("id", sectionPath);
     // add the user id as the first path
     doc.setField("path", authId);
+    // and as the shared ID for Authorizable and Profile search results
+    doc.setField("returnpath", authId);
     // add the indexed section as the second path
     doc.addField("path", sectionPath);
     // we have to set the _source field so default fields are added automatically.

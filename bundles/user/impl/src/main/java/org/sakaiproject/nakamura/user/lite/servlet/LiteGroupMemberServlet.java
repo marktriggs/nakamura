@@ -45,6 +45,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.user.BasicUserInfoService;
 import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,7 +139,7 @@ public class LiteGroupMemberServlet extends SlingSafeMethodsServlet {
 
     List<String> selectors = Arrays.asList(request.getRequestPathInfo().getSelectors());
     ExtendedJSONWriter writer = new ExtendedJSONWriter(response.getWriter());
-    writer.setTidy(selectors.contains("tidy"));
+    writer.setTidy(ServletUtils.isTidy(request));
 
     // Get the sorting order, default is ascending or the natural sorting order (which is
     // null for a TreeMap.)

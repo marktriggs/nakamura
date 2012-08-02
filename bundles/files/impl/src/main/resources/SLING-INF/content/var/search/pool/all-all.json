@@ -1,23 +1,13 @@
 {
-  "sakai:query-template": "resourceType:sakai/pooled-content${_tags} ${_mimetype}",
-  "sakai:query-template-options": {
-      "fq": ["-readers:g-portfolio-search"],
-      "sort": "${sortOn} ${sortOrder}",
-      "facet" : true,
-      "facet.field" : "tagname",
-      "facet.mincount" : 1
-  },
-  "sakai:query-template-defaults": {
-    "sortOn": "score",
-    "sortOrder": "desc",
-    "_tags": ""
-  },
+  "sakai:query-template": "${_q}",
+  "sakai:propertyprovider" : "ContentSearchQueryHandler",
+  "sakai:resultprocessor": "ContentSearchQueryHandler",
   "sling:resourceType": "sakai/solr-search",
-  "sakai:propertyprovider" : ["TagMatch", "MimeMatch"],
-  "sakai:batchresultprocessor": "PooledContentFiles",
-  "sakai:title": "Pooled Content - All",
-  "sakai:shortDescription": "Search through all the pooled files.",
+  "sakai:title": "Pooled Content - All - DEPRECATED",
+  "sakai:shortDescription": "DEPRECATED - instead call pool/all.json with no 'q' parameter",
   "sakai:parameters" : [
+      "{\"name\" : \"tags\", \"description\" : \"Only match content tagged with these values. These are tag IDs, not the displayed tag text.\"}",
+      "{\"name\" : \"mimetype\", \"description\" : \"Optional MIME type filter.\"}",
       "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. Default is sakai:filename\"}",
       "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'ascending' or 'descending'.\"}"
   ],

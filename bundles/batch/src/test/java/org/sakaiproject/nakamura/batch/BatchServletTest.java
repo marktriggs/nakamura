@@ -28,6 +28,7 @@ import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.junit.Before;
 import org.junit.Test;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,6 +50,8 @@ public class BatchServletTest {
   @Before
   public void setUp() throws Exception {
     servlet = new BatchServlet();
+    servlet.helper = new BatchHelper();
+    servlet.helper.dynamicContentResponseCache = mock(DynamicContentResponseCache.class);
     request = mock(SlingHttpServletRequest.class);
     response = mock(SlingHttpServletResponse.class);
 

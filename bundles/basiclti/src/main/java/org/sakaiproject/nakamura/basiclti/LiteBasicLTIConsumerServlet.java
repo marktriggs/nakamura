@@ -30,7 +30,6 @@ import static org.imsglobal.basiclti.BasicLTIConstants.LIS_PERSON_NAME_GIVEN;
 import static org.imsglobal.basiclti.BasicLTIConstants.RESOURCE_LINK_ID;
 import static org.imsglobal.basiclti.BasicLTIConstants.ROLES;
 import static org.imsglobal.basiclti.BasicLTIConstants.USER_ID;
-import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.ADMIN_CONFIG_PATH;
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.DEBUG;
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.DEBUG_LOCK;
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.FRAME_HEIGHT;
@@ -52,6 +51,7 @@ import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.RELEAS
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.TOPIC_BASICLTI_ACCESSED;
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.TOPIC_BASICLTI_LAUNCHED;
 import static org.sakaiproject.nakamura.api.basiclti.BasicLTIAppConstants.TOPIC_BASICLTI_REMOVED;
+import static org.sakaiproject.nakamura.basiclti.LiteBasicLTIServletUtils.getNodePath;
 import static org.sakaiproject.nakamura.basiclti.LiteBasicLTIServletUtils.sensitiveKeys;
 
 import org.apache.felix.scr.annotations.Activate;
@@ -64,8 +64,6 @@ import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.osgi.PropertiesUtil;
-import org.apache.sling.jcr.api.SlingRepository;
-import org.apache.sling.jcr.base.util.AccessControlUtil;
 import org.imsglobal.basiclti.BasicLTIConstants;
 import org.imsglobal.basiclti.BasicLTIUtil;
 import org.osgi.service.component.ComponentContext;
@@ -92,6 +90,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.user.UserConstants;
+import org.sakaiproject.nakamura.api.util.LocaleUtils;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 import org.sakaiproject.nakamura.util.osgi.EventUtils;
 import org.slf4j.Logger;
@@ -99,57 +98,37 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Writer;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Dictionary;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TimeZone;
 
-import javax.jcr.PropertyIterator;
-import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
-import javax.jcr.UnsupportedRepositoryOperationException;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
-@ServiceDocumentation(name = "BasicLTIConsumerServlet", okForVersion = "1.1",
-    shortDescription = "Performs all activities related to BasicLTI functionality.",
-    description = "Performs all activities related to BasicLTI functionality.",
-    bindings = @ServiceBinding(type = BindingType.TYPE, bindings = "sakai/basiclti",
-      extensions = {
-        @ServiceExtension(name = "json", description = "This is the default return type if none is specified."),
-        @ServiceExtension(name = "html", description = "Useful only in the context of a .launch selector and the preferred return type in that case.")
-      },
-      selectors = @ServiceSelector(name = "launch", description = "Used to retrieve the launch data for a BasicLTI launch (i.e. invocation of the service).")),
-    methods = {
-      @ServiceMethod(name = "GET", description = "Get information about a sakai/basiclti resource.",
-        parameters = {
-          @ServiceParameter(name = "None", description = "No parameters are required.")
-        },
-        response = {
-          @ServiceResponse(code = HttpServletResponse.SC_OK, description = "Request has been processed successfully."),
-          @ServiceResponse(code = HttpServletResponse.SC_NOT_FOUND, description = "Resource could not be found."),
-          @ServiceResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, description = "Unable to process request due to a runtime error.")
-        }),
-      @ServiceMethod(name = "POST", description = "This operation is not bound to this servlet and is deprected. Use the SparsePostServlet operation 'basiclti' instead."),
-      @ServiceMethod(name = "PUT", description = "The PUT method is not supported for sakai/basiclti nodes.",
-        response = {
-          @ServiceResponse(code = HttpServletResponse.SC_METHOD_NOT_ALLOWED, description = "PUT method not allowed.")
-        }),
-      @ServiceMethod(name = "DELETE", description = "Delete a sakai/basiclti node and its corresponding data.",
-        parameters = {
-          @ServiceParameter(name = "None", description = "No parameters are required.")
-        },
-        response = {
-          @ServiceResponse(code = HttpServletResponse.SC_OK, description = "Everything was deleted as expected"),
-          @ServiceResponse(code = HttpServletResponse.SC_FORBIDDEN, description = "Unauthorized: The current user does not have permissions to delete the data."),
-          @ServiceResponse(code = HttpServletResponse.SC_NOT_FOUND, description = "Resource could not be found."),
-          @ServiceResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, description = "Unable to delete the node due to a runtime error.")
-        })
-    })
+@ServiceDocumentation(name = "BasicLTIConsumerServlet", okForVersion = "1.1", shortDescription = "Performs all activities related to BasicLTI functionality.", description = "Performs all activities related to BasicLTI functionality.", bindings = @ServiceBinding(type = BindingType.TYPE, bindings = "sakai/basiclti", extensions = {
+    @ServiceExtension(name = "json", description = "This is the default return type if none is specified."),
+    @ServiceExtension(name = "html", description = "Useful only in the context of a .launch selector and the preferred return type in that case.") }, selectors = @ServiceSelector(name = "launch", description = "Used to retrieve the launch data for a BasicLTI launch (i.e. invocation of the service).")), methods = {
+    @ServiceMethod(name = "GET", description = "Get information about a sakai/basiclti resource.", parameters = { @ServiceParameter(name = "None", description = "No parameters are required.") }, response = {
+        @ServiceResponse(code = HttpServletResponse.SC_OK, description = "Request has been processed successfully."),
+        @ServiceResponse(code = HttpServletResponse.SC_NOT_FOUND, description = "Resource could not be found."),
+        @ServiceResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, description = "Unable to process request due to a runtime error.") }),
+    @ServiceMethod(name = "POST", description = "This operation is not bound to this servlet and is deprected. Use the SparsePostServlet operation 'basiclti' instead."),
+    @ServiceMethod(name = "PUT", description = "The PUT method is not supported for sakai/basiclti nodes.", response = { @ServiceResponse(code = HttpServletResponse.SC_METHOD_NOT_ALLOWED, description = "PUT method not allowed.") }),
+    @ServiceMethod(name = "DELETE", description = "Delete a sakai/basiclti node and its corresponding data.", parameters = { @ServiceParameter(name = "None", description = "No parameters are required.") }, response = {
+        @ServiceResponse(code = HttpServletResponse.SC_OK, description = "Everything was deleted as expected"),
+        @ServiceResponse(code = HttpServletResponse.SC_FORBIDDEN, description = "Unauthorized: The current user does not have permissions to delete the data."),
+        @ServiceResponse(code = HttpServletResponse.SC_NOT_FOUND, description = "Resource could not be found."),
+        @ServiceResponse(code = HttpServletResponse.SC_INTERNAL_SERVER_ERROR, description = "Unable to delete the node due to a runtime error.") }) })
 @SlingServlet(methods = { "GET", "PUT", "DELETE" }, resourceTypes = { "sakai/basiclti" })
 public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   private static final long serialVersionUID = 5985490994324951127L;
@@ -165,14 +144,9 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    * Keys we never want sent in the launch data.
    */
   private static final String[] BLACKLIST = { LTI_KEY, LTI_SECRET, LTI_URL };
-  /**
-   * Dependency injected from OSGI container.
-   */
-  @Reference
-  private transient SlingRepository jcrRepository;
 
   @Reference
-  private transient Repository sparseRepository;
+  protected transient Repository sparseRepository;
 
   @Reference
   protected transient EventAdmin eventAdmin;
@@ -183,6 +157,9 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   // TODO eventually needs to be a list of providers not just a single provider.
   @Reference
   protected transient VirtualToolDataProvider virtualToolDataProvider;
+
+  @Reference
+  protected transient LocaleUtils localeUtils;
 
   // global properties used for every tool launch
   /**
@@ -226,12 +203,14 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   protected void activate(ComponentContext componentContext) throws Exception {
     LOG.debug("activate(ComponentContext componentContext)");
     Dictionary<?, ?> properties = componentContext.getProperties();
-    instanceContactEmail = PropertiesUtil.toString(properties.get(INSTANCE_CONTACT_EMAIL),
-        "admin@sakaiproject.org");
+    instanceContactEmail = PropertiesUtil.toString(
+        properties.get(INSTANCE_CONTACT_EMAIL), "admin@sakaiproject.org");
     instanceDescription = PropertiesUtil.toString(properties.get(INSTANCE_DESCRIPTION),
         "The Sakai Project");
-    instanceGuid = PropertiesUtil.toString(properties.get(INSTANCE_GUID), "sakaiproject.org");
-    instanceName = PropertiesUtil.toString(properties.get(INSTANCE_NAME), "Sakai Development");
+    instanceGuid = PropertiesUtil.toString(properties.get(INSTANCE_GUID),
+        "sakaiproject.org");
+    instanceName = PropertiesUtil.toString(properties.get(INSTANCE_NAME),
+        "Sakai Development");
     instanceUrl = PropertiesUtil.toString(properties.get(INSTANCE_URL),
         "http://sakaiproject.org");
 
@@ -258,7 +237,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     LOG.debug("doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)");
     final String[] selectors = request.getRequestPathInfo().getSelectors();
     if (selectors != null && selectors.length > 0) {
-      for (final String selector : request.getRequestPathInfo().getSelectors()) {
+      for (final String selector : selectors) {
         if ("launch".equals(selector)) {
           doLaunch(request, response);
 
@@ -266,6 +245,10 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
           final Dictionary<String, String> properties = new Hashtable<String, String>();
           properties.put(UserConstants.EVENT_PROP_USERID, request.getRemoteUser());
           EventUtils.sendOsgiEvent(properties, TOPIC_BASICLTI_LAUNCHED, eventAdmin);
+          return;
+        } else {
+          sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Unsupported selector used",
+              new Error("Unsupported selector used"), response);
           return;
         }
       }
@@ -279,18 +262,19 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
           return;
         }
         final Content content = resource.adaptTo(Content.class);
-        final javax.jcr.Node node = resource.adaptTo(javax.jcr.Node.class);
         if (content != null) { // sparse path
           try {
             response.setContentType("application/json");
-            final Map<String, Object> settings = new HashMap<String, Object>(readProperties(content));
+            final Map<String, Object> settings = new HashMap<String, Object>(
+                readProperties(content));
             final Session session = StorageClientUtils.adaptToSession(request
                 .getResourceResolver().adaptTo(javax.jcr.Session.class));
             if (canManageSettings(content.getPath(), session)) {
               settings.putAll(readSensitiveNode(content));
             }
             final Map<String, Object> adminSettings = getAdminSettings(content, false);
-            // Starting with the properties we've saved, we override them with admin settings
+            // Starting with the properties we've saved, we override them with admin
+            // settings
             // only when the corresponding admin lock isn't turned on.
             final Map<String, Object> effectiveSettings = new HashMap<String, Object>();
             effectiveSettings.putAll(settings);
@@ -302,26 +286,14 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
             sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                 e.getLocalizedMessage(), e, response);
           }
-        } else if (node != null) { // JCR path
-          try {
-            response.setContentType("application/json");
-            final Map<String, Object> settings = readProperties(node);
-            final javax.jcr.Session session = request.getResourceResolver().adaptTo(
-                javax.jcr.Session.class);
-            if (canManageSettings(node.getPath(), session)) {
-              settings.putAll(readSensitiveNode(node));
-            }
-            final Map<String, Object> adminSettings = getAdminSettings(node, false);
-            settings.putAll(adminSettings);
-            renderJson(response.getWriter(), settings);
-          } catch (Exception e) {
-            sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                e.getLocalizedMessage(), e, response);
-          }
         } else {
           sendError(HttpServletResponse.SC_NOT_FOUND, "Could not find resource: "
               + resource.getPath(), null, response);
         }
+      } else {
+        sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Unsupported selector used",
+            new Error("Unsupported selector used"), response);
+        return;
       }
       response.setStatus(HttpServletResponse.SC_OK);
 
@@ -340,6 +312,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     if (resource == null) {
       sendError(HttpServletResponse.SC_NOT_FOUND, "Resource could not be found",
           new Error("Resource could not be found"), response);
+      return;
     }
     final Content node = resource.adaptTo(Content.class);
     if (node == null) {
@@ -372,6 +345,23 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
             new IllegalArgumentException(LTI_URL + " cannot be null"), response);
         return;
       }
+      URL url = null;
+      try {
+        url = new URL(ltiUrl);
+      } catch (MalformedURLException e) {
+        sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, LTI_URL
+            + " malformed URL", new IllegalArgumentException(LTI_URL + " malformed URL"),
+            response);
+        return;
+      }
+      // KERN-2990 ensure we are not launching into ourself!
+      if (url.getPath().contains(node.getPath())) {
+        sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, LTI_URL
+            + " cannot launch into itself", new IllegalArgumentException(LTI_URL
+            + " cannot launch into itself"), response);
+        return;
+      }
+
       // LTI_SECRET
       final String ltiSecret = (String) effectiveSettings.get(LTI_SECRET);
       if (ltiSecret == null || "".equals(ltiSecret)) {
@@ -389,14 +379,14 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
         return;
       }
 
-      // e.g. /sites/foo/_widgets/id944280073/basiclti
-      launchProps.put(RESOURCE_LINK_ID, node.getPath());
+      // e.g. mvw0Gmalaa/id1987761/id3490751/basiclti
+      launchProps.put(RESOURCE_LINK_ID, getNodePath(node));
 
       final AuthorizableManager userManager = session.getAuthorizableManager();
       final org.sakaiproject.nakamura.api.lite.authorizable.Authorizable az = userManager
           .findAuthorizable(session.getUserId());
 
-      final boolean releasePrincipal = (Boolean)effectiveSettings
+      final boolean releasePrincipal = (Boolean) effectiveSettings
           .get(RELEASE_PRINCIPAL_NAME);
       if (releasePrincipal) {
         launchProps.put(USER_ID, az.getId());
@@ -415,37 +405,24 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
       if (request.getParameter("groupid") != null) {
         groupId = sitePath = request.getParameter("groupid");
         usingGroup = true;
-      }
-      else {
+      } else {
         sitePath = pooledContentNode.getPath();
         usingGroup = false;
       }
-       
-      final String contextId = contextIdResolver.resolveContextId(pooledContentNode, groupId, session);
+
+      final String contextId = contextIdResolver.resolveContextId(pooledContentNode,
+          groupId, session);
       if (contextId == null) {
-        throw new IllegalStateException("Could not resolve context_id!");
+        final String message = "Could not resolve context_id!";
+        sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, message,
+            new IllegalStateException(message), response);
+        return;
       }
       launchProps.put(CONTEXT_ID, contextId);
-      if ("sakai/pooled-content".equals(pooledContentNode
-          .getProperty("sling:resourceType"))) {
-        launchProps.put(CONTEXT_TITLE,
-            (String) pooledContentNode.getProperty("sakai:pooled-content-file-name"));
-        launchProps.put(CONTEXT_LABEL,
-            (String) pooledContentNode.getProperty("sakai:description"));
-      } else { // sakai/group-home
-        final Content groupProfileNode = session.getContentManager().get(
-            pooledContentNode.getPath() + "/public/authprofile");
-        if (groupProfileNode != null) {
-          launchProps.put(CONTEXT_TITLE,
-              (String) groupProfileNode.getProperty("sakai:group-title"));
-          launchProps.put(CONTEXT_LABEL,
-              (String) groupProfileNode.getProperty("sakai:group-id"));
-        } else {
-          // cannot find group profile data
-          launchProps.put(CONTEXT_TITLE, (String) pooledContentNode.getProperty("_path"));
-          launchProps.put(CONTEXT_LABEL, (String) pooledContentNode.getProperty("_path"));
-        }
-      }
+      launchProps.put(CONTEXT_TITLE,
+          (String) pooledContentNode.getProperty("sakai:pooled-content-file-name"));
+      launchProps.put(CONTEXT_LABEL,
+          (String) pooledContentNode.getProperty("sakai:description"));
 
       // FIXME how to determine site type?
       // CourseSection probably satisfies 90% of our use cases.
@@ -454,33 +431,32 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
 
       final org.sakaiproject.nakamura.api.lite.accesscontrol.AccessControlManager accessControlManager = session
           .getAccessControlManager();
-      
+
       String zone = Security.ZONE_CONTENT;
       if (usingGroup) {
         zone = Security.ZONE_AUTHORIZABLES;
-      } 
-      final boolean canManageSite = accessControlManager.can(az, zone,
-          sitePath, Permissions.CAN_WRITE_ACL);
+      }
+      final boolean canManageSite = accessControlManager.can(az, zone, sitePath,
+          Permissions.CAN_WRITE_ACL);
       LOG.info("hasPrivileges(modifyAccessControl)=" + canManageSite);
       if (UserConstants.ANON_USERID.equals(session.getUserId())) {
         launchProps.put(ROLES, "None");
       } else if (canManageSite) {
         launchProps.put(ROLES, "Instructor");
       } else {
-      //OAE-33
+        // OAE-33
         launchProps.put(ROLES, "Student");
       }
-      final boolean releaseNames = (Boolean)effectiveSettings
-          .get(RELEASE_NAMES);
+      final boolean releaseNames = (Boolean) effectiveSettings.get(RELEASE_NAMES);
       if (releaseNames) {
         String firstName = null;
         if (az.hasProperty("firstName")) {
-          firstName = ((String)az.getProperty("firstName"));
+          firstName = ((String) az.getProperty("firstName"));
           launchProps.put(LIS_PERSON_NAME_GIVEN, firstName);
         }
         String lastName = null;
         if (az.hasProperty("lastName")) {
-          lastName = ((String)az.getProperty("lastName"));
+          lastName = ((String) az.getProperty("lastName"));
           launchProps.put(LIS_PERSON_NAME_FAMILY, lastName);
         }
         StringBuilder sb = new StringBuilder();
@@ -491,23 +467,20 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
         if (lastName != null) {
           sb.append(lastName);
         }
-        final String fullName = sb.toString();
-        if (firstName != null || lastName != null) {
+        final String fullName = sb.toString().trim();
+        if (fullName.length() > 0) {
           // only if at least one name is not null
           launchProps.put(LIS_PERSON_NAME_FULL, fullName);
         }
       }
 
-      final boolean releaseEmail = (Boolean) effectiveSettings
-          .get(RELEASE_EMAIL);
+      final boolean releaseEmail = (Boolean) effectiveSettings.get(RELEASE_EMAIL);
       if (releaseEmail) {
         if (az.hasProperty("email")) {
-          final String email = ((String)az.getProperty("email"));
+          final String email = ((String) az.getProperty("email"));
           launchProps.put(LIS_PERSON_CONTACT_EMAIL_PRIMARY, email);
         }
       }
-
-      launchProps.put(LAUNCH_PRESENTATION_LOCALE, request.getLocale().toString());
 
       // we will always launch in an iframe for the time being
       launchProps.put(LAUNCH_PRESENTATION_DOCUMENT_TARGET, "iframe");
@@ -526,6 +499,20 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
         }
       }
 
+      // KERN-2890 Add timezone and locale support
+      final Map<String, Object> azProperties = localeUtils.getProperties(az);
+      final Locale locale = localeUtils.getLocale(azProperties);
+      launchProps.put(LAUNCH_PRESENTATION_LOCALE, locale.toString());
+      launchProps.put("ext_" + LAUNCH_PRESENTATION_LOCALE + "_iso3",
+          localeUtils.getIso3Language(locale) + "_" + localeUtils.getIso3Country(locale));
+
+      final TimeZone timezone = localeUtils.getTimeZone(azProperties);
+      final int offset = localeUtils.getOffset(timezone);
+      launchProps.put("ext_tz", timezone.getID());
+      launchProps.put("ext_tz_offset", String.valueOf(offset));
+      launchProps.put("ext_timezone", timezone.getID());
+      launchProps.put("ext_timezone_offset", String.valueOf(offset));
+
       final boolean debug = (Boolean) effectiveSettings.get(DEBUG);
       // might be useful for the remote end to know if debug is enabled...
       launchProps.put(DEBUG, "" + debug);
@@ -542,9 +529,12 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
       final String extension = request.getRequestPathInfo().getExtension();
       if ("html".equalsIgnoreCase(extension)) { // return html
         final String html = BasicLTIUtil.postLaunchHTML(signedProperties, ltiUrl, debug);
+        response.setContentType("text/html");
         response.getWriter().write(html);
-      } else { // return json
-        renderJson(response.getWriter(), ltiUrl, signedProperties);
+      } else {
+        sendError(HttpServletResponse.SC_NOT_IMPLEMENTED, "Unsupported extension used",
+            new Error("Unsupported extension used"), response);
+        return;
       }
     } catch (Throwable e) {
       sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getLocalizedMessage(), e,
@@ -560,42 +550,14 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    * 
    * @param node
    * @return
-   * @throws RepositoryException
-   */
-  private Map<String, Object> getLaunchSettings(final javax.jcr.Node node)
-      throws RepositoryException {
-    final Map<String, Object> settings = readProperties(node);
-    // sanity check for sensitive data in settings node
-    final List<String> keysToRemove = new ArrayList<String>(sensitiveKeys.size());
-    for (final Entry<String, Object> entry : settings.entrySet()) {
-      final String key = entry.getKey();
-      if (sensitiveKeys.contains(key)) {
-        LOG.error("Sensitive data exposed: {} in {}", key, node.getPath());
-        keysToRemove.add(key);
-      }
-    }
-    for (final String key : keysToRemove) {
-      settings.remove(key);
-    }
-    final Map<String, String> sensitiveData = readSensitiveNode(node);
-    settings.putAll(sensitiveData);
-    return settings;
-  }
-
-  /**
-   * Intended for nodes of <code>sling:resourceType=sakai/basiclti</code> - i.e. not
-   * sensitive nodes.
-   * 
-   * @param node
-   * @return
    * @throws org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException
    * @throws StorageClientException
    * @throws ClientPoolException
    */
-  private Map<String, Object> getLaunchSettings(final Content node)
+  protected Map<String, Object> getLaunchSettings(final Content node)
       throws RepositoryException, ClientPoolException, StorageClientException,
       org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException {
-    final Map<String, Object> settings = new HashMap<String,Object>(readProperties(node));
+    final Map<String, Object> settings = new HashMap<String, Object>(readProperties(node));
     // sanity check for sensitive data in settings node
     final List<String> keysToRemove = new ArrayList<String>(sensitiveKeys.size());
     for (final Entry<String, Object> entry : settings.entrySet()) {
@@ -611,28 +573,6 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     final Map<String, String> sensitiveData = readSensitiveNode(node);
     settings.putAll(sensitiveData);
     return settings;
-  }
-
-  /**
-   * Helper method to read the policy settings from /var/basiclti/* virtual tools.
-   * 
-   * @param node
-   * @param launchMode
-   *          true if sensitive settings should be included; false if not to include
-   *          sesitive settings.
-   * @return An empty Map if no settings could be found.
-   * @throws RepositoryException
-   */
-  private Map<String, Object> getAdminSettings(final javax.jcr.Node node,
-      final boolean launchMode) throws RepositoryException {
-    // grab admin settings from /var/basiclti/* if they exist...
-    String vtoolId = null;
-    if (node.hasProperty(LTI_VTOOL_ID)) {
-      vtoolId = node.getProperty(LTI_VTOOL_ID).getString();
-    } else {
-      vtoolId = "basiclti";
-    }
-    return getAdminSettings(vtoolId, launchMode);
   }
 
   /**
@@ -650,7 +590,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     // grab admin settings from /var/basiclti/* if they exist...
     String vtoolId = null;
     if (node.hasProperty(LTI_VTOOL_ID)) {
-      vtoolId = (String)node.getProperty(LTI_VTOOL_ID);
+      vtoolId = (String) node.getProperty(LTI_VTOOL_ID);
     } else {
       vtoolId = "basiclti";
     }
@@ -664,82 +604,24 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    *          The virtual tool id (e.g. <code>sakai.resources</code>)
    * @param launchMode
    *          true if sensitive settings should be included; false if not to include
-   *          sesitive settings.
+   *          sensitive settings.
    * @return An empty Map if no settings could be found.
-   * @throws RepositoryException
    */
   private Map<String, Object> getAdminSettings(final String vtoolId,
-      final boolean launchMode) throws RepositoryException {
-    // grab admin settings from /var/basiclti/* if they exist...
-    final String adminNodePath = ADMIN_CONFIG_PATH + "/" + vtoolId;
+      final boolean launchMode) {
     Map<String, Object> adminSettings = null;
-    // begin admin elevation
-    javax.jcr.Session adminSession = null;
-    try {
-      adminSession = jcrRepository.loginAdministrative(null);
-      if (adminSession.itemExists(adminNodePath)) {
-        LOG.debug("Found administrative settings for virtual tool (in JCR content): "
-            + vtoolId);
-        final javax.jcr.Node adminNode = (javax.jcr.Node) adminSession
-            .getItem(adminNodePath);
-        if (launchMode) {
-          adminSettings = getLaunchSettings(adminNode);
-        } else {
-          adminSettings = readProperties(adminNode);
-        }
-      } else {
-        // No settings found in JCR; consult with VirtualToolDataProvider
-        if (launchMode) {
-          adminSettings = virtualToolDataProvider.getLaunchValues(vtoolId);
-          if (adminSettings != null) {
-            adminSettings.putAll(virtualToolDataProvider.getKeySecret(vtoolId));
-          }
-        } else {
-          adminSettings = virtualToolDataProvider.getLaunchValues(vtoolId);
-        }
+    if (launchMode) {
+      adminSettings = virtualToolDataProvider.getLaunchValues(vtoolId);
+      if (adminSettings != null) {
+        adminSettings.putAll(virtualToolDataProvider.getKeySecret(vtoolId));
       }
-      if (adminSettings == null) {
-        adminSettings = Collections.emptyMap();
-      }
-    } finally {
-      if (adminSession != null) {
-        adminSession.logout();
-      }
-    } // end admin elevation
-    return adminSettings;
-  }
-
-  /**
-   * Simple helper method to read Node Properties into a <code>Map<String, String></code>.
-   * No sanity checking is performed for issues regarding sensitive data exposure.
-   * <p>
-   * Only well known application settings will be returned in the Map (i.e. other
-   * properties will be filtered out).
-   * 
-   * @param node
-   * @return
-   * @throws RepositoryException
-   */
-  private Map<String, Object> readProperties(final javax.jcr.Node node)
-      throws RepositoryException {
-    // loop through Node properties
-    final PropertyIterator iter = node.getProperties();
-    final Map<String, Object> settings = new HashMap<String, Object>((int) iter.getSize());
-    while (iter.hasNext()) {
-      final javax.jcr.Property property = iter.nextProperty();
-      switch (property.getValue().getType()) {
-      case PropertyType.STRING:
-        settings.put(property.getName(), property.getValue().getString());
-        break;
-      case PropertyType.BOOLEAN:
-        settings.put(property.getName(),
-            Boolean.valueOf(property.getValue().getBoolean()));
-        break;
-      default:
-        break;
-      }
+    } else {
+      adminSettings = virtualToolDataProvider.getLaunchValues(vtoolId);
     }
-    return settings;
+    if (adminSettings == null) {
+      adminSettings = Collections.emptyMap();
+    }
+    return adminSettings;
   }
 
   /**
@@ -771,70 +653,34 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     if (resource == null) {
       sendError(HttpServletResponse.SC_NOT_FOUND, "Resource could not be found",
           new Error("Resource could not be found"), response);
+      return;
     }
     final Content node = resource.adaptTo(Content.class);
-    final Session session = StorageClientUtils.adaptToSession(request
-        .getResourceResolver().adaptTo(javax.jcr.Session.class));
-    try {
-      if (canRemoveNode(node.getPath(), session)) {
-        removeSensitiveNode(node);
-        session.getContentManager().delete(node.getPath());
+    if (node != null) {
+      final Session session = StorageClientUtils.adaptToSession(request
+          .getResourceResolver().adaptTo(javax.jcr.Session.class));
+      try {
+        if (canRemoveNode(node.getPath(), session)) {
+          removeSensitiveNode(node);
+          session.getContentManager().delete(node.getPath());
 
-        // Send out an OSGi event that we removed a basic/lti node.
-        Dictionary<String, String> properties = new Hashtable<String, String>();
-        properties.put(UserConstants.EVENT_PROP_USERID, request.getRemoteUser());
-        EventUtils.sendOsgiEvent(properties, TOPIC_BASICLTI_REMOVED, eventAdmin);
-      } else {
-        sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied", null, response);
-      }
-    } catch (Exception e) {
-      sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getLocalizedMessage(), e,
-          response);
-    }
-    response.setStatus(HttpServletResponse.SC_OK);
-  }
+          // Send out an OSGi event that we removed a basic/lti node.
+          Dictionary<String, String> properties = new Hashtable<String, String>();
+          properties.put(UserConstants.EVENT_PROP_USERID, request.getRemoteUser());
+          EventUtils.sendOsgiEvent(properties, TOPIC_BASICLTI_REMOVED, eventAdmin);
 
-  /**
-   * Since normal users do not have privileges to read the sensitive node, this method
-   * elevates privileges to admin to read the values.
-   * <p>
-   * This method should <em>only</em> be called from <code>doLaunch()</code> or if the
-   * user has permissions to manage the <code>sakai/basiclti</code> settings node (i.e.
-   * <code>canManageSettings()</code> from <code>doGet()</code>).
-   * 
-   * @param parent
-   * @return
-   * @throws RepositoryException
-   */
-  private Map<String, String> readSensitiveNode(final javax.jcr.Node parent)
-      throws RepositoryException {
-    final String adminNodePath = parent.getPath() + "/" + LTI_ADMIN_NODE_NAME;
-    Map<String, String> settings = null;
-    // now let's elevate Privileges and do some admin modifications
-    javax.jcr.Session adminSession = null;
-    try {
-      adminSession = jcrRepository.loginAdministrative(null);
-      if (adminSession.itemExists(adminNodePath)) {
-        final javax.jcr.Node adminNode = (javax.jcr.Node) adminSession
-            .getItem(adminNodePath);
-        final PropertyIterator iter = adminNode.getProperties();
-        settings = new HashMap<String, String>((int) iter.getSize());
-        while (iter.hasNext()) {
-          final javax.jcr.Property property = iter.nextProperty();
-          final String propertyName = property.getName();
-          if (sensitiveKeys.contains(propertyName)) { // the ones we care about
-            settings.put(propertyName, property.getValue().getString());
-          }
+          response.setStatus(HttpServletResponse.SC_OK);
+        } else {
+          sendError(HttpServletResponse.SC_FORBIDDEN, "Access denied", null, response);
         }
-      } else {
-        settings = new HashMap<String, String>(0);
+      } catch (Exception e) {
+        sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getLocalizedMessage(),
+            e, response);
       }
-    } finally {
-      if (adminSession != null) {
-        adminSession.logout();
-      }
-    } // end admin elevation
-    return settings;
+    } else {
+      sendError(HttpServletResponse.SC_NOT_FOUND, "Content could not be found",
+          new Error("Content could not be found"), response);
+    }
   }
 
   /**
@@ -866,11 +712,11 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
         settings = new HashMap<String, String>((int) properties.size());
         for (Entry<String, Object> entry : properties.entrySet()) {
           if (sensitiveKeys.contains(entry.getKey())) { // the ones we care about
-            settings.put(entry.getKey(), (String)entry.getValue());
+            settings.put(entry.getKey(), (String) entry.getValue());
           }
         }
       } else {
-        LOG.warn("Could not find sensitiveContent: " + adminNodePath);
+        LOG.debug("Could not find sensitiveContent: " + adminNodePath);
         settings = new HashMap<String, String>(0);
       }
     } finally {
@@ -904,30 +750,6 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
         adminSession.logout();
       }
     } // end admin elevation
-  }
-
-  /**
-   * Does userSession.getUserId have permission to modify the <code>sakai/basiclti</code>
-   * settings node?
-   * 
-   * @param path
-   *          Absolute path to the <code>sakai/basiclti</code> settings node.
-   * @param userSession
-   *          The session of the current user (i.e. not the admin session)
-   * @return <code>true</code> if the session has the specified privileges;
-   *         <code>false</code> otherwise.
-   * @throws UnsupportedRepositoryOperationException
-   * @throws RepositoryException
-   */
-  private boolean canManageSettings(final String path, final javax.jcr.Session userSession)
-      throws UnsupportedRepositoryOperationException, RepositoryException {
-    final javax.jcr.security.AccessControlManager accessControlManager = AccessControlUtil
-        .getAccessControlManager(userSession);
-    final javax.jcr.security.Privilege[] modifyProperties = { accessControlManager
-        .privilegeFromName(javax.jcr.security.Privilege.JCR_MODIFY_PROPERTIES) };
-    boolean canManageSettings = accessControlManager
-        .hasPrivileges(path, modifyProperties);
-    return canManageSettings;
   }
 
   /**
@@ -993,30 +815,6 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    * Simple helper to render a JSON response.
    * 
    * @param pwriter
-   * @param ltiUrl
-   * @param properties
-   * @throws JSONException
-   */
-  private void renderJson(final Writer pwriter, final String ltiUrl,
-      final Map<String, String> properties) throws JSONException {
-    final ExtendedJSONWriter writer = new ExtendedJSONWriter(pwriter);
-    writer.object(); // root object
-    writer.key("launchURL");
-    writer.value(ltiUrl);
-    writer.key("postData");
-    writer.object();
-    for (final Entry<String, String> entry : properties.entrySet()) {
-      writer.key(entry.getKey());
-      writer.value(entry.getValue());
-    }
-    writer.endObject(); // postData
-    writer.endObject(); // root object
-  }
-
-  /**
-   * Simple helper to render a JSON response.
-   * 
-   * @param pwriter
    * @param properties
    * @throws JSONException
    */
@@ -1047,7 +845,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    * @param userSettings
    *          Tool placement settings. Locks are ignored.
    */
-  private void effectiveSetting(final String setting,
+  protected void effectiveSetting(final String setting,
       final Map<String, Object> effectiveSettings,
       final Map<String, Object> adminSettings, final Map<String, Object> userSettings) {
     if (setting == null || effectiveSettings == null || adminSettings == null
@@ -1077,9 +875,8 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
   }
 
   /**
-   * Utility method to start walking back up the hierarchy looking for the 
-   * containing pooled content node. If the pooled content node cannot be found, 
-   * null is returned.
+   * Utility method to start walking back up the hierarchy looking for the containing
+   * pooled content node. If the pooled content node cannot be found, null is returned.
    * 
    * @param startingNode
    * @param session
@@ -1099,8 +896,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
       if (traversalNode.hasProperty("sling:resourceType")) {
         final String resourceType = (String) traversalNode
             .getProperty("sling:resourceType");
-        if ("sakai/pooled-content".equals(resourceType)
-            || "sakai/group-home".equals(resourceType)) {
+        if ("sakai/pooled-content".equals(resourceType)) {
           // found the parent site node
           returnNode = traversalNode;
           break;
@@ -1133,7 +929,7 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
    *          Allows null value.
    * @param response
    */
-  private void sendError(int errorCode, String message, Throwable exception,
+  protected void sendError(int errorCode, String message, Throwable exception,
       HttpServletResponse response) {
     if (!response.isCommitted()) {
       try {
@@ -1148,17 +944,4 @@ public class LiteBasicLTIConsumerServlet extends SlingAllMethodsServlet {
     }
   }
 
-  /**
-   * @param jcrRepository
-   */
-  protected void bindJcrRepository(SlingRepository jcrRepository) {
-    this.jcrRepository = jcrRepository;
-  }
-
-  /**
-   * @param jcrRepository
-   */
-  protected void unbindJcrRepository(SlingRepository jcrRepository) {
-    this.jcrRepository = null;
-  }
 }

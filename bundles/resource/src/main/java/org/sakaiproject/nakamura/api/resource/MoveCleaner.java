@@ -17,12 +17,12 @@
  */
 package org.sakaiproject.nakamura.api.resource;
 
-import java.util.List;
-
 import org.apache.sling.servlets.post.Modification;
+import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
-import org.sakaiproject.nakamura.api.lite.content.ContentManager;
+
+import java.util.List;
 
 /**
  * <p>
@@ -48,10 +48,10 @@ public interface MoveCleaner {
    *          The path the data was moved from.
    * @param toContent
    *          The content where the data now lives.
-   * @param cm
-   *          The content manager used to move the data.
+   * @param session
+   *          The session of the user performing the operation
    * @return A list of modifications made when cleaning the moved data.
    */
-  List<Modification> clean(String fromPath, String toPath, ContentManager cm)
+  List<Modification> clean(String fromPath, String toPath, Session session)
       throws StorageClientException, AccessDeniedException;
 }

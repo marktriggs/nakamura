@@ -36,6 +36,7 @@ import org.sakaiproject.nakamura.api.doc.ServiceBinding;
 import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
+import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.proxy.ProxyClientException;
 import org.sakaiproject.nakamura.api.proxy.ProxyClientService;
 import org.sakaiproject.nakamura.api.proxy.ProxyPostProcessor;
@@ -241,6 +242,12 @@ public class ResourceProxyServlet extends SlingAllMethodsServlet implements Opti
         response.sendError(HttpServletResponse.SC_FORBIDDEN, "Proxying templates may only be stored in " + PROXY_PATH_PREFIX);
         return;
       }
+
+      if (request.getRemoteUser().equals(User.ANON_USER)) {
+        response.sendError(HttpServletResponse.SC_FORBIDDEN, "Cannot proxy anonymously.");
+        return;
+      }
+
       Node node = resource.adaptTo(Node.class);
       if ( !userInputStream ) {
         Value[] v = JcrUtils.getValues(node, SAKAI_REQUEST_STREAM_BODY);
@@ -323,9 +330,9 @@ public class ResourceProxyServlet extends SlingAllMethodsServlet implements Opti
     } catch (IOException e) {
       throw e;
     } catch (ProxyClientException e) {
-      response.sendError(500, e.getMessage());
+      response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
     } catch (RepositoryException e) {
-      response.sendError(500, e.getMessage());
+      response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getMessage());
     }
   }
 

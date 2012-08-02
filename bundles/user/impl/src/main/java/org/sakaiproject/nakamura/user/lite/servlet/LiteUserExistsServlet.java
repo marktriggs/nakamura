@@ -37,12 +37,17 @@ import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceParameter;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
 import org.sakaiproject.nakamura.api.doc.ServiceSelector;
+import org.sakaiproject.nakamura.api.lite.Repository;
+import org.sakaiproject.nakamura.api.lite.Session;
+import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.user.UserFinder;
+import org.sakaiproject.nakamura.util.SparseUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
@@ -95,6 +100,7 @@ import javax.servlet.http.HttpServletResponse;
         response={
           @ServiceResponse(code=204,description="Success, user exists. No content returned."),
           @ServiceResponse(code=400,description="Bad request: the required userid parameter was missing."),
+          @ServiceResponse(code=409,description="The specified username conflicts with a username on the system or is invalid."),
           @ServiceResponse(code=404,description="The specified user does not exist in the system.")
         }))
 @Component(immediate=true, metatype=true)
@@ -111,14 +117,25 @@ public class LiteUserExistsServlet extends SlingSafeMethodsServlet {
   public static final String USER_EXISTS_DELAY_MS_PROPERTY = "user.exists.delay.ms";
   public static final long USER_EXISTS_DELAY_MS_DEFAULT = 200;
   protected long delayMs;
+
+  @Property(label="Restricted name patterns",
+		  description="A regular expression string to check usernames against and report the conflict.",
+		  value=LiteUserExistsServlet.RESTRICTED_USERNAME_REGEX_DEFAULT)
+  public static final String RESTRICTED_USERNAME_REGEX_PROPERTY = "restricted.username.regex";
+  public static final String RESTRICTED_USERNAME_REGEX_DEFAULT  = "admin|administrator.*";
+  protected Pattern restrictedUsernamePattern;
   
   @Reference
   protected UserFinder userFinder;
+
+  @Reference
+  protected Repository repository;
 
   @Override
   protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
       throws ServletException, IOException {
     long start = System.currentTimeMillis();
+    Session session = null;
     try {
       RequestParameter idParam = request.getRequestParameter("userid");
       if (idParam == null) {
@@ -130,11 +147,18 @@ public class LiteUserExistsServlet extends SlingSafeMethodsServlet {
         response.sendError(HttpServletResponse.SC_BAD_REQUEST, "The 'userid' parameter must not be blank.");
         return;
       }
+
+      session = repository.loginAdministrative();
+      AuthorizableManager am = session.getAuthorizableManager();
+
       String id = idParam.getString();
       LOGGER.debug("Checking for existence of {}", id);
       // finding by id but in AuthorizableManager users are created with id and name being the same string
-      if (userFinder.userExists(id)) {
+      if (userFinder.userExists(id) || am.findAuthorizable(id) != null) {
         response.setStatus(HttpServletResponse.SC_NO_CONTENT);
+      }
+      else if (restrictedUsernamePattern.matcher(id).matches()){
+        response.sendError(HttpServletResponse.SC_CONFLICT);
       } else {
         response.sendError(HttpServletResponse.SC_NOT_FOUND);
       }
@@ -142,7 +166,9 @@ public class LiteUserExistsServlet extends SlingSafeMethodsServlet {
       response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, e.getLocalizedMessage());
       return;
     } finally {
+      SparseUtils.logoutQuietly(session);
       LOGGER.debug("checking for existence took {} ms", System.currentTimeMillis() - start);
+      session = null;
       if (delayMs > 0) {
         long remainingTime = delayMs - (System.currentTimeMillis() - start);
         if (remainingTime > 0) {
@@ -159,5 +185,7 @@ public class LiteUserExistsServlet extends SlingSafeMethodsServlet {
   protected void modified(Map<?, ?> props) {
     delayMs = PropertiesUtil.toLong(props.get(USER_EXISTS_DELAY_MS_PROPERTY),
         USER_EXISTS_DELAY_MS_DEFAULT);
+    restrictedUsernamePattern = Pattern.compile(PropertiesUtil.toString(props.get(RESTRICTED_USERNAME_REGEX_PROPERTY),
+        RESTRICTED_USERNAME_REGEX_DEFAULT), Pattern.CASE_INSENSITIVE);
   }
 }

@@ -18,6 +18,9 @@
 
 package org.sakaiproject.nakamura.message.search;
 
+import static org.sakaiproject.nakamura.api.search.solr.SolrSearchConstants.PARAMS_ITEMS_PER_PAGE;
+
+import com.google.common.collect.ImmutableMap;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Properties;
 import org.apache.felix.scr.annotations.Property;
@@ -28,6 +31,8 @@ import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.commons.json.JSONException;
 import org.apache.sling.commons.json.io.JSONWriter;
 import org.apache.solr.client.solrj.util.ClientUtils;
+import org.apache.solr.common.params.CommonParams;
+import org.apache.solr.common.params.GroupParams;
 import org.osgi.framework.Constants;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
@@ -41,6 +46,8 @@ import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Map;
 
 @Component
 @Service
@@ -77,9 +84,12 @@ public class MessageSearchResponseDecorator implements SearchResponseDecorator {
       String store = messagingService.getFullPathToStore(userID, session);
       store = ISO9075.encodePath(store);
       store = store.substring(0, store.length() - 1);
-      String queryString = "path:" + ClientUtils.escapeQueryChars(store) +
-              " AND resourceType:sakai/message AND type:internal AND messagebox:inbox AND read:false";
-      Query query = new Query(queryString);
+      String queryString = "path:" + ClientUtils.escapeQueryChars(store);
+      final Map<String, Object> queryOptions;
+      queryOptions = new ImmutableMap.Builder<String, Object>().
+          put(CommonParams.FQ, "resourceType:sakai/message AND type:internal AND messagebox:inbox AND read:false").
+          build();
+      Query query = new Query(queryString, queryOptions);
       SolrSearchResultSet resultSet = searchServiceFactory.getSearchResultSet(
               request, query, false);
       count = resultSet.getSize();

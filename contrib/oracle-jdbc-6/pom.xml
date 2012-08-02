@@ -1,47 +1,83 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project xml:base="file:///D:/Data/csu/java/projects/sakai_nakamura/src/i2devel/1.2/xom/pom.xml"
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd"
+xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-      <groupId>org.sakaiproject.nakamura</groupId>
-      <artifactId>base</artifactId>
-      <version>1.3.0</version>
+        <groupId>org.sakaiproject.nakamura</groupId>
+        <artifactId>base</artifactId>
+        <version>1.4.0</version>
     </parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>org.sakaiproject.nakamura.ojdbc6</artifactId>
     <packaging>bundle</packaging>
     <name>Sakai Nakamura :: Oracle JDBC Bundle</name>
-    <description>
-        This bundle wraps ojdbc6.jar.
-    </description>
+    <description> This bundle wraps ojdbc6.jar. </description>
     <organization>
         <name>The Sakai Foundation</name>
         <url>http://sakaiproject.org/</url>
     </organization>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.felix</groupId>
-                <artifactId>maven-bundle-plugin</artifactId>
-                <version>1.4.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <instructions>
-                        <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency>
-                        <Export-Package>oracle.*</Export-Package>
-                        <Import-Package>
-                          oracle.i18n.text;resolution:=optional,
-                          oracle.i18n.text.converter;resolution:=optional,
-                          oracle.ons;resolution:=optional,
-                          oracle.security.pki;resolution:=optional,
-                          !com.sun.security.auth.module,
-                          *
-                        </Import-Package>
-                    </instructions>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
+    <profiles>
+        <!-- 
+           | Oracle Database 11g Release 1
+           | JDBC drivers
+           -->
+        <profile>
+            <id>11.1.0.6</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.felix</groupId>
+                        <artifactId>maven-bundle-plugin</artifactId>
+                        <version>1.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <instructions>
+                                <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency>
+                                <Export-Package>oracle.*</Export-Package>
+                                <Import-Package> oracle.i18n.text;resolution:=optional,
+                                oracle.i18n.text.converter;resolution:=optional,
+                                oracle.ons;resolution:=optional,
+                                oracle.security.pki;resolution:=optional,
+                                !com.sun.security.auth.module,
+                                * </Import-Package>
+                            </instructions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <dependencies>
+                <dependency>
+                    <groupId>com.oracle</groupId>
+                    <artifactId>ojdbc6</artifactId>
+                    <version>11.1.0.6</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>11.1.0.7</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.felix</groupId>
+                        <artifactId>maven-bundle-plugin</artifactId>
+                        <version>1.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <instructions>
+                                <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency>
+                                <Export-Package>oracle.*</Export-Package>
+                                <Import-Package> oracle.i18n.text;resolution:=optional,
+                                oracle.i18n.text.converter;resolution:=optional,
+                                oracle.ons;resolution:=optional,
+                                oracle.security.pki;resolution:=optional,
+                                !com.sun.security.auth.module,
+                                * </Import-Package>
+                            </instructions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
             <dependencies>
                 <dependency>
                     <groupId>com.oracle</groupId>
@@ -49,4 +85,126 @@
                     <version>11.1.0.7</version>
                 </dependency>
             </dependencies>
+        </profile>
+
+        <!-- 
+           | Oracle Database 11g Release 2
+           | JDBC drivers
+           -->
+        <profile>
+            <id>11.2.0.1.0</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.felix</groupId>
+                        <artifactId>maven-bundle-plugin</artifactId>
+                        <version>1.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <instructions>
+                                <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency>
+                                <Export-Package>oracle.*</Export-Package>
+                                <Import-Package> oracle.i18n.text;resolution:=optional,
+                                oracle.i18n.text.converter;resolution:=optional,
+                                oracle.ons;resolution:=optional,
+                                oracle.xdb;resolution:=optional,
+                                oracle.xml.parser.v2;resolution:=optional,
+                                sun.security.krb5;resolution:=optional,
+                                sun.security.krb5.internal;resolution:=optional,
+                                sun.security.util;resolution:=optional,
+                                oracle.security.pki;resolution:=optional,
+                                !com.sun.security.auth.module,
+                                * </Import-Package>
+                            </instructions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <dependencies>
+                <dependency>
+                    <groupId>com.oracle</groupId>
+                    <artifactId>ojdbc6</artifactId>
+                    <version>11.2.0.1.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>11.2.0.2.0</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.felix</groupId>
+                        <artifactId>maven-bundle-plugin</artifactId>
+                        <version>1.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <instructions>
+                                <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency>
+                                <Export-Package>oracle.*</Export-Package>
+                                <Import-Package> oracle.i18n.text;resolution:=optional,
+                                oracle.i18n.text.converter;resolution:=optional,
+                                oracle.ons;resolution:=optional,
+                                oracle.xdb;resolution:=optional,
+                                oracle.xml.parser.v2;resolution:=optional,
+                                sun.security.krb5;resolution:=optional,
+                                sun.security.krb5.internal;resolution:=optional,
+                                sun.security.util;resolution:=optional,
+                                oracle.security.pki;resolution:=optional,
+                                com.sun.security.auth.module;resolution:=optional,
+                                * </Import-Package>
+                            </instructions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <dependencies>
+                <dependency>
+                    <groupId>com.oracle</groupId>
+                    <artifactId>ojdbc6</artifactId>
+                    <version>11.2.0.2.0</version>
+                </dependency>
+            </dependencies>
+        </profile>
+        <profile>
+            <id>11.2.0.3</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.felix</groupId>
+                        <artifactId>maven-bundle-plugin</artifactId>
+                        <version>1.4.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <instructions>
+                                <Embed-Dependency>oracle.jdbc;inline=true</Embed-Dependency> 
+                                <Export-Package>oracle.*</Export-Package>
+                                <Import-Package> oracle.i18n.text;resolution:=optional,
+                                oracle.i18n.text.converter;resolution:=optional,
+                                oracle.ons;resolution:=optional,
+                                oracle.xdb;resolution:=optional,
+                                oracle.xml.parser.v2;resolution:=optional,
+                                org.objectweb.asm;resolution:=optional,
+                                sun.security.krb5;resolution:=optional,
+                                sun.security.krb5.internal;resolution:=optional,
+                                sun.security.util;resolution:=optional,
+                                oracle.security.pki;resolution:=optional,
+                                com.sun.security.auth.module;resolution:=optional,
+                                * </Import-Package>
+                            </instructions>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+            <dependencies>
+                <dependency>
+                    <groupId>com.oracle</groupId>
+                    <artifactId>ojdbc6</artifactId>
+                    <version>11.2.0.3</version>
+                </dependency>
+            </dependencies>
+        </profile>
+    </profiles>
 </project>

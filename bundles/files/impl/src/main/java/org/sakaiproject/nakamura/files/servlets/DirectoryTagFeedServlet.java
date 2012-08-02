@@ -55,6 +55,7 @@ import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.sakaiproject.nakamura.files.search.LiteFileSearchBatchResultProcessor;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 import org.sakaiproject.nakamura.util.PathUtils;
+import org.sakaiproject.nakamura.util.ServletUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -146,7 +147,7 @@ public class DirectoryTagFeedServlet extends SlingSafeMethodsServlet {
     
     request.setAttribute("depth", depth);
     JSONWriter write = new JSONWriter(response.getWriter());
-    write.setTidy(tidy);
+    write.setTidy(ServletUtils.isTidy(request));
     Resource directoryResource = request.getResource();
     try {
       write.object();

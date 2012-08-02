@@ -93,57 +93,76 @@ public class CLEVirtualToolDataProvider implements VirtualToolDataProvider {
   @Property(boolValue = true, name = "sakai.cle.basiclti.debug.lock", description = "Lock the debug mode setting.")
   protected static final String LTI_DEBUG_LOCK = "sakai.cle.basiclti.debug.lock";
 
+  /**
+   * please keep these in sync if you change them. sync is needed to work around The value
+   * for annotation attribute Property.value must be an array initializer; i.e.: <a href=
+   * "http://stackoverflow.com/questions/2065937/how-to-supply-value-to-an-annotation-from-a-constant-java"
+   * >stackoverflow.com article</a>
+   */
+  protected static final String[] DEFAULT_TOOL_LIST = new String[] {
+      "sakai.gradebook.gwt.rpc", "sakai.assignment.grades", "sakai.samigo",
+      "sakai.schedule", "sakai.announcements", "sakai.postem", "sakai.profile2",
+      "sakai.profile", "sakai.chat", "sakai.resources", "sakai.rwiki", "sakai.forums",
+      "sakai.gradebook.tool", "sakai.mailbox", "sakai.singleuser", "sakai.messages",
+      "sakai.site.roster", "sakai.news", "sakai.summary.calendar", "sakai.poll",
+      "sakai.syllabus", "sakai.blogwow", "sakai.sitestats", "sakai.sections" };
   @Property(value = { "sakai.gradebook.gwt.rpc", "sakai.assignment.grades",
       "sakai.samigo", "sakai.schedule", "sakai.announcements", "sakai.postem",
-      "sakai.profile2", "sakai.profile", "sakai.chat", "sakai.resources",
-      "sakai.rwiki", "sakai.forums", "sakai.gradebook.tool",
-      "sakai.mailbox", "sakai.singleuser", "sakai.messages", "sakai.site.roster",
-      "sakai.news", "sakai.summary.calendar", "sakai.poll", "sakai.syllabus",
-      "sakai.blogwow", "sakai.sitestats", "sakai.sections" }, name = "sakai.cle.basiclti.tool.list", description = "")
+      "sakai.profile2", "sakai.profile", "sakai.chat", "sakai.resources", "sakai.rwiki",
+      "sakai.forums", "sakai.gradebook.tool", "sakai.mailbox", "sakai.singleuser",
+      "sakai.messages", "sakai.site.roster", "sakai.news", "sakai.summary.calendar",
+      "sakai.poll", "sakai.syllabus", "sakai.blogwow", "sakai.sitestats",
+      "sakai.sections" }, name = "sakai.cle.basiclti.tool.list", description = "")
   protected static final String TOOL_LIST = "sakai.cle.basiclti.tool.list";
 
-  private String cleUrl;
-  private String ltiKey;
-  private String ltiSecret;
-  private Long frameHeight;
-  private boolean frameHeightLock;
-  private boolean urlLock;
-  private boolean keyLock;
-  private boolean secretLock;
-  private boolean releaseNames;
-  private boolean releaseNamesLock;
-  private boolean releaseEmail;
-  private boolean releaseEmailLock;
-  private boolean releasePrincipal;
-  private boolean releasePrincipalLock;
-  private boolean debug;
-  private boolean debugLock;
-  private List<String> toolList;
+  protected String cleUrl = "http://localhost";
+  protected String ltiKey = "12345";
+  protected String ltiSecret = "secret";
+  protected Long frameHeight = 100L;
+  protected boolean frameHeightLock = true;
+  protected boolean urlLock = true;
+  protected boolean keyLock = true;
+  protected boolean secretLock = true;
+  protected boolean releaseNames = true;
+  protected boolean releaseNamesLock = true;
+  protected boolean releaseEmail = true;
+  protected boolean releaseEmailLock = true;
+  protected boolean releasePrincipal = true;
+  protected boolean releasePrincipalLock = true;
+  protected boolean debug = false;
+  protected boolean debugLock = true;
+  protected List<String> toolList = Arrays.asList(DEFAULT_TOOL_LIST);
 
   @Activate
-  protected void activate(ComponentContext componentContext) throws Exception {
+  protected void activate(ComponentContext componentContext) {
     LOG.debug("activate(ComponentContext componentContext)");
-    Dictionary<?, ?> properties = componentContext.getProperties();
-    cleUrl = PropertiesUtil.toString(properties.get(CLE_SERVER_URL), "http://localhost");
-    ltiKey = PropertiesUtil.toString(properties.get(CLE_BASICLTI_KEY), "12345");
-    ltiSecret = PropertiesUtil.toString(properties.get(CLE_BASICLTI_SECRET), "secret");
-    frameHeight = PropertiesUtil.toLong(properties.get(CLE_BASICLTI_FRAME_HEIGHT), 100);
-    frameHeightLock = PropertiesUtil.toBoolean(properties.get(CLE_BASICLTI_FRAME_HEIGHT_LOCK),
-        true);
-    urlLock = PropertiesUtil.toBoolean(properties.get(LTI_URL_LOCK), true);
-    keyLock = PropertiesUtil.toBoolean(properties.get(LTI_KEY_LOCK), true);
-    secretLock = PropertiesUtil.toBoolean(properties.get(LTI_SECRET_LOCK), true);
-    releaseNames = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_NAMES), true);
-    releaseNamesLock = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_NAMES_LOCK), true);
-    releaseEmail = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_EMAIL), true);
-    releaseEmailLock = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_EMAIL_LOCK), true);
-    releasePrincipal = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_PRINCIPAL), true);
-    releasePrincipalLock = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_PRINCIPAL_LOCK),
-        true);
-    debug = PropertiesUtil.toBoolean(properties.get(LTI_DEBUG), false);
-    debugLock = PropertiesUtil.toBoolean(properties.get(LTI_DEBUG_LOCK), true);
-    toolList = new ArrayList<String>(Arrays.asList(PropertiesUtil.toStringArray(properties
-        .get(TOOL_LIST))));
+    final Dictionary<?, ?> properties = componentContext.getProperties();
+    cleUrl = PropertiesUtil.toString(properties.get(CLE_SERVER_URL), cleUrl);
+    ltiKey = PropertiesUtil.toString(properties.get(CLE_BASICLTI_KEY), ltiKey);
+    ltiSecret = PropertiesUtil.toString(properties.get(CLE_BASICLTI_SECRET), ltiSecret);
+    frameHeight = PropertiesUtil.toLong(properties.get(CLE_BASICLTI_FRAME_HEIGHT),
+        frameHeight);
+    frameHeightLock = PropertiesUtil.toBoolean(
+        properties.get(CLE_BASICLTI_FRAME_HEIGHT_LOCK), frameHeightLock);
+    urlLock = PropertiesUtil.toBoolean(properties.get(LTI_URL_LOCK), urlLock);
+    keyLock = PropertiesUtil.toBoolean(properties.get(LTI_KEY_LOCK), keyLock);
+    secretLock = PropertiesUtil.toBoolean(properties.get(LTI_SECRET_LOCK), secretLock);
+    releaseNames = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_NAMES),
+        releaseNames);
+    releaseNamesLock = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_NAMES_LOCK),
+        releaseNamesLock);
+    releaseEmail = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_EMAIL),
+        releaseEmail);
+    releaseEmailLock = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_EMAIL_LOCK),
+        releaseEmailLock);
+    releasePrincipal = PropertiesUtil.toBoolean(properties.get(LTI_RELEASE_PRINCIPAL),
+        releasePrincipal);
+    releasePrincipalLock = PropertiesUtil.toBoolean(
+        properties.get(LTI_RELEASE_PRINCIPAL_LOCK), releasePrincipalLock);
+    debug = PropertiesUtil.toBoolean(properties.get(LTI_DEBUG), debug);
+    debugLock = PropertiesUtil.toBoolean(properties.get(LTI_DEBUG_LOCK), debugLock);
+    toolList = new ArrayList<String>(Arrays.asList(PropertiesUtil.toStringArray(
+        properties.get(TOOL_LIST), DEFAULT_TOOL_LIST)));
   }
 
   /**

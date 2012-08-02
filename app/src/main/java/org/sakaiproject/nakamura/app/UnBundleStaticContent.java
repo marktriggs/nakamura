@@ -116,11 +116,20 @@ public class UnBundleStaticContent {
 					File target = new File(dest[i], name.substring(source[i]
 							.length()));
 					target.getParentFile().mkdirs();
-					OutputStream out = new FileOutputStream(target);
-					InputStream in = containingJarFile.getInputStream(je);
-					copy(in, out);
-					out.close();
-					in.close();
+					OutputStream out = null;
+					InputStream in = null;
+					try {
+					  out = new FileOutputStream(target);
+					  in = containingJarFile.getInputStream(je);
+					  copy(in, out);
+					} finally {
+					  if (in != null) {
+					    in.close();
+					  }
+					  if (out != null) {
+					    out.close();
+					  }
+					}
 					logger.info("Updated      " + target.getAbsoluteFile(),
 							null);
 					files.add(target);

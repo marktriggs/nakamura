@@ -94,7 +94,7 @@ public class RelatedContentSearchBatchResultProcessor extends
       /* we need to grab some random content to reach minimum of 11 results. */
       final Session session = StorageClientUtils.adaptToSession(request
           .getResourceResolver().adaptTo(javax.jcr.Session.class));
-      final String user = MeManagerViewerSearchPropertyProvider.getUser(request);
+      final String user = SearchRequestUtils.getUser(request);
 
       // query to find ALL content that is not mine, boost some fields that have values
       final StringBuilder sourceQuery = new StringBuilder(

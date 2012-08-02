@@ -105,7 +105,7 @@ class TC_Kern1795Test < Test::Unit::TestCase
     me = JSON.parse(res.body)
     counts = me['profile']['counts']
     @log.info("user counts are: #{counts.inspect}")
-    assert_equal(1, counts['contentCount'], 'contentCount should be 1 after 1 upload')
+    assert_equal(0, counts['contentCount'], 'contentCount should be 0 after deleting the file')
   end
   
   def test_add_contact_for_user

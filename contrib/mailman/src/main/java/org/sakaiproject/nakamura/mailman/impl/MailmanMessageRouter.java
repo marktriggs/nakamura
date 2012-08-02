@@ -21,8 +21,9 @@ import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
 import org.apache.felix.scr.annotations.Service;
+import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.message.MessageRoute;
-import org.sakaiproject.nakamura.api.message.MessageRouter;
+import org.sakaiproject.nakamura.api.message.LiteMessageRouter;
 import org.sakaiproject.nakamura.api.message.MessageRoutes;
 import org.sakaiproject.nakamura.mailman.MailmanManager;
 import org.slf4j.Logger;
@@ -31,11 +32,9 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 
-import javax.jcr.Node;
-
 @Component(inherit = true, immediate = true, label = "%mail.manager.router.label")
 @Service
-public class MailmanMessageRouter implements MessageRouter {
+public class MailmanMessageRouter implements LiteMessageRouter {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(MailmanMessageRouter.class);
   
@@ -54,8 +53,8 @@ public class MailmanMessageRouter implements MessageRouter {
     return 1;
   }
 
-  public void route(Node n, MessageRoutes routing) {
-    LOGGER.info("Mailman routing message: " + n);
+  public void route(Content c, MessageRoutes routing) {
+    LOGGER.info("Mailman routing message: " + c);
     List<MessageRoute> toRemove = new ArrayList<MessageRoute>();
     List<MessageRoute> toAdd = new ArrayList<MessageRoute>();
     for (MessageRoute route : routing) {

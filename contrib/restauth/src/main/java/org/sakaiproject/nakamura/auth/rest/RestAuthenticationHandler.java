@@ -181,7 +181,7 @@ public class RestAuthenticationHandler implements AuthenticationHandler,
     } else {
       LOGGER.debug("SSO logout will request redirect to {}", logoutUrl);
     }
-    request.setAttribute(Authenticator.LOGIN_RESOURCE, logoutUrl);
+    response.sendRedirect(logoutUrl);
   }
 
   public AuthenticationInfo extractCredentials(HttpServletRequest request,

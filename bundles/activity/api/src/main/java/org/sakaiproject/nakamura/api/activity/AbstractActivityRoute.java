@@ -22,10 +22,13 @@ package org.sakaiproject.nakamura.api.activity;
  */
 public abstract class AbstractActivityRoute implements ActivityRoute {
 
+  private String[] readers;
+  
   private String destination;
 
-  public AbstractActivityRoute(String destination) {
+  public AbstractActivityRoute(String destination, String[] readers) {
     this.destination = destination;
+    this.readers = readers;
   }
 
   /**
@@ -35,6 +38,14 @@ public abstract class AbstractActivityRoute implements ActivityRoute {
    */
   public String getDestination() {
     return destination;
+  }
+  
+  /**
+   * {@inheritDoc}
+   * @see org.sakaiproject.nakamura.api.activity.ActivityRoute#getReaders()
+   */
+  public String[] getReaders() {
+    return readers;
   }
 
 }

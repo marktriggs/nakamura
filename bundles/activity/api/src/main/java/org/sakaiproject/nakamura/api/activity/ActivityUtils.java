@@ -19,13 +19,13 @@ package org.sakaiproject.nakamura.api.activity;
 
 import static org.sakaiproject.nakamura.api.activity.ActivityConstants.EVENT_TOPIC;
 
+import com.google.common.collect.Maps;
+
 import org.apache.commons.lang.StringUtils;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventAdmin;
 import org.sakaiproject.nakamura.util.LitePersonalUtils;
 import org.sakaiproject.nakamura.util.PathUtils;
-
-import com.google.common.collect.Maps;
 
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
@@ -40,7 +40,7 @@ import java.util.Map;
  *
  */
 public class ActivityUtils {
-
+  
   private static SecureRandom random = null;
 
   @SuppressWarnings("rawtypes")
@@ -125,7 +125,7 @@ public class ActivityUtils {
     id.append(randomHash);
     return id.toString();
   }
-
+  
   /**
    * Post an activity event. processed by activity listeners.
    * @param eventAdmin 

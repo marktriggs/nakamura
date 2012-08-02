@@ -1,0 +1,16 @@
+{
+  "sakai:query-template": "${_q}",
+  "sling:resourceType": "sakai/solr-search",
+  "sakai:propertyprovider": ["AccessScopedContentQueryHandler"],
+  "sakai:resultprocessor": "AccessScopedContentQueryHandler",
+  "sakai:title": "Pooled Content - Me - By Role",
+  "sakai:shortDescription": "Searches through all the files for which the current (or specified) user has the given 'role'.",
+  "sakai:parameters" : [
+      "{\"name\" : \"q\", \"description\" : \"The search term you wish to search on. This will search trough the actual content of the file and any properties on the node.\"}",
+      "{\"name\" : \"role\", \"description\" : \"The role the user should have on the content to search. (required) \"}",
+      "{\"name\" : \"userid\", \"description\" : \"The user on which to search. If not specified it will be the authenticated user. If anonymous, there will be an error.\"}",
+      "{\"name\" : \"mimetype\", \"description\" : \"The mimetype of the content on which to search..\"}",
+      "{\"name\" : \"sortOn\", \"description\" : \"The name of the property you wish to sort on. This only has any affect if it is used with the sortOrder parameter. Default is jcr:score.\"}",
+      "{\"name\" : \"sortOrder\", \"description\" : \"The order you wish to sort in. Either 'ascending' or 'descending'.\"}"
+  ]
+}

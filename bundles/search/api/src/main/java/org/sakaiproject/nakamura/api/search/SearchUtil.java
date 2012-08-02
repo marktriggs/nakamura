@@ -73,7 +73,6 @@ public class SearchUtil {
    * Get the starting point.
    *
    * @param request
-   * @param total
    * @return
    */
   public static long getPaging(SlingHttpServletRequest request) {
@@ -135,15 +134,24 @@ public class SearchUtil {
   }
 
   public static int getTraversalDepth(SlingHttpServletRequest req, int maxRecursionLevels) {
+    Integer selector = SearchUtil.getTraversalDepthSelector(req);
+    if (selector != null) {
+      maxRecursionLevels = selector.intValue();
+    }
+    return maxRecursionLevels;
+  }
+
+  public static Integer getTraversalDepthSelector(SlingHttpServletRequest req) {
+    Integer selector = null;
     final String[] selectors = req.getRequestPathInfo().getSelectors();
     if (selectors != null && selectors.length > 0) {
       final String level = selectors[selectors.length - 1];
       if (!TIDY.equals(level)) {
         if (INFINITY.equals(level)) {
-          maxRecursionLevels = -1;
+          selector = -1;
         } else {
           try {
-            maxRecursionLevels = Integer.parseInt(level);
+            selector = Integer.parseInt(level);
           } catch (NumberFormatException nfe) {
             LOGGER.warn("Invalid recursion selector value '" + level
                 + "'; defaulting to 0");
@@ -151,7 +159,7 @@ public class SearchUtil {
         }
       }
     }
-    return maxRecursionLevels;
+    return selector;
   }
 
   /** Pattern to match on home paths. */

@@ -42,6 +42,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 import org.sakaiproject.nakamura.util.LitePersonalUtils;
+import org.sakaiproject.nakamura.util.ServletUtils;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -109,6 +110,7 @@ public class LiteGroupGetServlet extends SlingSafeMethodsServlet {
       response.setCharacterEncoding("UTF-8");
 
       ExtendedJSONWriter write = new ExtendedJSONWriter(response.getWriter());
+      write.setTidy(ServletUtils.isTidy(request));
       write.object();
       ValueMap groupProps = resource.adaptTo(ValueMap.class);
       if (groupProps != null)

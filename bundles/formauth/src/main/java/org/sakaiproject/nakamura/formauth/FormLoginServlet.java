@@ -34,6 +34,8 @@ import org.sakaiproject.nakamura.api.doc.ServiceDocumentation;
 import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceParameter;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.formauth.FormAuthenticationHandler.FormAuthentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -90,6 +92,9 @@ public class FormLoginServlet extends SlingAllMethodsServlet {
   @Reference(cardinality=ReferenceCardinality.OPTIONAL_UNARY, policy=ReferencePolicy.DYNAMIC)
   protected Authenticator authenticator;
 
+  @Reference
+  protected DynamicContentResponseCache dynamicContentResponseCache;
+
   /**
    *
    */
@@ -143,6 +148,9 @@ public class FormLoginServlet extends SlingAllMethodsServlet {
           Session session = request.getResourceResolver().adaptTo(Session.class);
           String userId = session.getUserID();
           String authUser = authentication.getUserId();
+
+          dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, userId);
+
           if (userId.equals(authUser)) {
             FormAuthenticationTokenServiceWrapper formAuthenticationTokenService = new FormAuthenticationTokenServiceWrapper(
                 this, trustedTokenService);

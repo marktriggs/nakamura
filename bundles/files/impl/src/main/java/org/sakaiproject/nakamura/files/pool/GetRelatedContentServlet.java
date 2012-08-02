@@ -51,6 +51,7 @@ import org.sakaiproject.nakamura.api.search.solr.SolrSearchException;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchResultSet;
 import org.sakaiproject.nakamura.api.search.solr.SolrSearchServiceFactory;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,7 +126,7 @@ public class GetRelatedContentServlet extends SlingSafeMethodsServlet {
     ContentManager contentManager = resource.adaptTo(ContentManager.class);
     try {
       ExtendedJSONWriter writer = new ExtendedJSONWriter(response.getWriter());
-      writer.setTidy(selectors.contains("tidy"));
+      writer.setTidy(ServletUtils.isTidy(request));
       writer.array();
 
       if (content.hasProperty(SAKAI_TAGS)) {

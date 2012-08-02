@@ -37,6 +37,7 @@ import org.apache.sling.auth.core.spi.AuthenticationHandler;
 import org.apache.sling.auth.core.spi.AuthenticationInfo;
 import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.osgi.framework.Constants;
+import org.osgi.service.component.ComponentContext;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
@@ -44,6 +45,9 @@ import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
+import org.sakaiproject.nakamura.api.memory.Cache;
+import org.sakaiproject.nakamura.api.memory.CacheManagerService;
+import org.sakaiproject.nakamura.api.memory.CacheScope;
 import org.sakaiproject.nakamura.util.LitePersonalUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,6 +65,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.jcr.SimpleCredentials;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.xml.namespace.QName;
@@ -129,10 +134,11 @@ public class CasAuthenticationHandler implements AuthenticationHandler {
   static final String PROXY = "sakai.auth.cas.prop.proxy";
   private boolean proxy;
 
-  // FIXME This will probably fail in a cluster, what if CAS calls back to a different
-  // server
-  protected static HashMap<String, String> pgtIOUs = new HashMap<String, String>();
-  protected static HashMap<String, String> pgts = new HashMap<String, String>();
+  @Reference
+  protected CacheManagerService cacheManagerService;
+
+  private Cache<String> pgtIOUs;
+  private Cache<String> pgts;
 
   /**
    * Define the set of authentication-related query parameters which should
@@ -155,6 +161,11 @@ public class CasAuthenticationHandler implements AuthenticationHandler {
     renew = PropertiesUtil.toBoolean(props.get(RENEW), DEFAULT_RENEW);
     gateway = PropertiesUtil.toBoolean(props.get(GATEWAY), DEFAULT_GATEWAY);
     proxy = PropertiesUtil.toBoolean(props.get(PROXY), DEFAULT_PROXY);
+
+    pgtIOUs = cacheManagerService.getCache(CasAuthenticationHandler.class.getName()
+        + "-iou-cache", CacheScope.CLUSTERREPLICATED);
+    pgts = cacheManagerService.getCache(CasAuthenticationHandler.class.getName()
+        + "-pgt-cache", CacheScope.CLUSTERREPLICATED);
   }
 
   //----------- AuthenticationHandler interface ----------------------------
@@ -174,7 +185,7 @@ public class CasAuthenticationHandler implements AuthenticationHandler {
     } else {
       LOGGER.debug("SSO logout will request redirect to {}", logoutUrl);
     }
-    request.setAttribute(Authenticator.LOGIN_RESOURCE, logoutUrl);
+    response.sendRedirect(logoutUrl);
   }
 
   public AuthenticationInfo extractCredentials(HttpServletRequest request,
@@ -561,4 +572,5 @@ public class CasAuthenticationHandler implements AuthenticationHandler {
   public void setpgt(String pgtIou, String pgt) {
     pgts.put(pgtIou, pgt);
   }
+
 }

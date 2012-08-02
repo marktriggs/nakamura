@@ -113,9 +113,11 @@ public class Activator implements BundleActivator {
     }
 
     private JSONObject readJsonFromUrl(BundleContext context, String url) throws IOException, JSONException {
-      InputStream is = context.getBundle().getResource(url).openStream();
+      InputStream is = null;
+      BufferedReader rd = null;
       try {
-        BufferedReader rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
+        is = context.getBundle().getResource(url).openStream();
+        rd = new BufferedReader(new InputStreamReader(is, Charset.forName("UTF-8")));
         StringBuilder jsonText = new StringBuilder();
         int cp;
         while ((cp = rd.read()) != -1) {
@@ -124,7 +126,12 @@ public class Activator implements BundleActivator {
         JSONObject json = new JSONObject(jsonText.toString());
         return json;
       } finally {
-        is.close();
+        if (rd != null) {
+          rd.close();
+        }
+        if (is != null) {
+          is.close();
+        }
       }
     }
   }

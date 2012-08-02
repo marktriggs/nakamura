@@ -17,16 +17,14 @@
  */
 package org.sakaiproject.nakamura.docproxy.disk;
 
-import org.apache.commons.logging.Log;
 import org.apache.sling.commons.json.JSONObject;
 import org.sakaiproject.nakamura.api.docproxy.DocProxyException;
-import org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult;
+import org.sakaiproject.nakamura.docproxy.AbstractDocumentResult;
 import org.sakaiproject.nakamura.util.IOUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -37,7 +35,7 @@ import javax.activation.MimetypesFileTypeMap;
 /**
  *
  */
-public class DiskDocumentResult implements ExternalDocumentResult {
+public class DiskDocumentResult extends AbstractDocumentResult {
 
   private File file;
 
@@ -51,22 +49,14 @@ public class DiskDocumentResult implements ExternalDocumentResult {
    * 
    * @see org.sakaiproject.nakamura.api.docproxy.ExternalDocumentResult#getDocumentInputStream(long)
    */
-  public InputStream getDocumentInputStream(long startingAt, String userId) throws DocProxyException {
+  public InputStream getDocumentInputStream(String userId) throws DocProxyException {
     FileInputStream in = null;
     try {
       in = new FileInputStream(file);
-      in.skip(startingAt);
       return in;
     } catch (FileNotFoundException e) {
       return null;
-    } catch (IOException e) {
-      try {
-        in.close();
-      } catch (IOException e1) {
-        return null;
-      }
-      return null;
-    } 
+    }
   }
 
   /**

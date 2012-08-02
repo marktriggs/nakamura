@@ -70,10 +70,26 @@ public class SparseCreateServlet extends SlingAllMethodsServlet implements Optin
   private static final long serialVersionUID = -6590959255525049482L;
   private static final Logger LOGGER = LoggerFactory.getLogger(SparseCreateServlet.class);
   public static final String CONTENT_TARGET_PATH_ATTRIBUTE = SparseCreateServlet.class.getName() + ".contentTargetPath";
+  private static final String SYSTEM_USER_MANAGER_GROUP_PATH = "/system/userManager/group";
+  private static final String SYSTEM_USER_MANAGER_USER_PATH = "/system/userManager/user";
 
   @Override
   protected void doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)
       throws ServletException, IOException {
+    LOGGER.debug("doPost(SlingHttpServletRequest request, SlingHttpServletResponse response)");
+    /*
+     * KERN-2879 updates to nonexistent users create documents under
+     * /system/userManager/user rather than errors
+     */
+    final String path = request.getResource().getPath();
+    if (path != null
+        && (path.contains(SYSTEM_USER_MANAGER_USER_PATH) || path
+            .contains(SYSTEM_USER_MANAGER_GROUP_PATH))) {
+      response.sendError(HttpServletResponse.SC_NOT_FOUND,
+          "Cannot perform POST operations against a Principal that does not exist!");
+      return;
+    }
+
     final Session session = StorageClientUtils.adaptToSession(request.getResourceResolver().adaptTo(javax.jcr.Session.class));
     if (session == null) {
       LOGGER.warn("Unable to get a Sparse session while handling POST to {}", request.getPathInfo());
@@ -96,8 +112,17 @@ public class SparseCreateServlet extends SlingAllMethodsServlet implements Optin
   // ---------- OptingServlet interface ----------------------------------------
   public boolean accepts(SlingHttpServletRequest request) {
     // check for a parent resource that lives in sparse
-    String path = request.getResource().getPath();
+    final String path = request.getResource().getPath();
     if (!StringUtils.isBlank(path)) {
+      /*
+       * KERN-2879 updates to nonexistent users create documents under
+       * /system/userManager/user rather than errors
+       */
+      // is this for a non-existing user or group management request?
+      if (path.contains(SYSTEM_USER_MANAGER_USER_PATH)
+          || path.contains(SYSTEM_USER_MANAGER_GROUP_PATH)) {
+        return true;
+      }
       ResourceResolver resourceResolver = request.getResourceResolver();
       // search each parent to see if we should store this resource in sparse
       String parentPath = path;

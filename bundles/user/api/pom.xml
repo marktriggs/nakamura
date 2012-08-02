@@ -15,7 +15,7 @@
   <parent>
     <groupId>org.sakaiproject.nakamura</groupId>
     <artifactId>base</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
     <relativePath>../../../pom.xml</relativePath>
   </parent>
   <artifactId>org.sakaiproject.nakamura.user.api</artifactId>
@@ -115,6 +115,10 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
+    </dependency>
+    <dependency>
+        <groupId>javax.servlet</groupId>
+        <artifactId>servlet-api</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.sling</groupId>

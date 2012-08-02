@@ -48,6 +48,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.proxy.ProxyClientService;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -314,7 +315,7 @@ public class LiteClusterUserServlet extends SlingSafeMethodsServlet {
             "Could not findAuthorizable");
       } else {
         JSONWriter jsonWriter = new JSONWriter(response.getWriter());
-        jsonWriter.setTidy(true);
+        jsonWriter.setTidy(ServletUtils.isTidy(request));
         jsonWriter.object();
         jsonWriter.key("server").value(serverId); // server
 

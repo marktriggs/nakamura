@@ -1,5 +1,6 @@
-{ "sakai:query-template": "(messagestore:${_userMessagePath} AND resourceType:sakai/message AND messagebox:(${box})${_categoryClause}) AND (title:(${q}) OR content:(${q}) OR ngram:(${q}) OR edgengram:(${q}) OR from:(${q}) OR firstName:(${q}) OR lastName:(${q}))",
+{ "sakai:query-template": "(messagestore:${_userMessagePath} AND (title:(${q}) OR content:(${q}) OR ngram:(${q}) OR edgengram:(${q}) OR from:(${q}) OR firstName:(${q}) OR lastName:(${q})))",
   "sakai:query-template-options": {
+      "fq": "resourceType:sakai/message AND messagebox:(${box})${_categoryClause}",
       "sort": "${sortOn} ${sortOrder}"
   },
   "sakai:query-template-defaults": {

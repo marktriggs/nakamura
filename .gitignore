@@ -34,3 +34,4 @@ scripts/logs
 *.pyc
 *.orig
 .rvmrc
+/integration/sakai

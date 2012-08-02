@@ -32,6 +32,7 @@ import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.sling.servlets.post.Modification;
 import org.apache.sling.servlets.post.SlingPostConstants;
 import org.osgi.service.component.ComponentContext;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
@@ -47,6 +48,7 @@ import org.sakaiproject.nakamura.api.resource.RequestProperty;
 import org.sakaiproject.nakamura.api.resource.lite.SparsePropertyValueHandler;
 import org.sakaiproject.nakamura.api.resource.lite.SparseType;
 import org.sakaiproject.nakamura.api.user.AuthorizableCountChanger;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,6 +89,9 @@ public abstract class LiteAbstractAuthorizablePostServlet extends
 
     @Reference
     protected transient AuthorizableCountChanger authorizableCountChanger;
+
+    @Reference
+    protected transient DynamicContentResponseCache responseCache;
 
     // ---------- SCR Integration ----------------------------------------------
 

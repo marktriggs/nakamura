@@ -27,7 +27,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -142,10 +141,16 @@ public class NakamuraMain {
           info("No runtime, will use contents of launcher jar", null);
         }
         slingHomeFile.mkdirs();
-        FileWriter fw = new FileWriter(loaderTimestamp);
-        fw.write(String.valueOf(lastModified));
-        fw.close();
-        fw = null;
+        FileWriter fw = null;
+        try {
+          fw = new FileWriter(loaderTimestamp);
+          fw.write(String.valueOf(lastModified));
+        } finally {
+          if (fw != null) {
+            fw.close();
+            fw = null;
+          }
+        }
         return true;
       } else {
         info("Runtime image, newer than launcher, using runtime image ",

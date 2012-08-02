@@ -32,9 +32,11 @@ import org.osgi.service.event.EventAdmin;
 import org.sakaiproject.nakamura.api.auth.trusted.TrustedTokenService;
 import org.sakaiproject.nakamura.api.auth.trusted.TrustedTokenTypes;
 import org.sakaiproject.nakamura.api.cluster.ClusterTrackingService;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 import org.sakaiproject.nakamura.api.memory.Cache;
 import org.sakaiproject.nakamura.api.memory.CacheManagerService;
 import org.sakaiproject.nakamura.api.memory.CacheScope;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.auth.trusted.TrustedAuthenticationHandler.TrustedAuthentication;
 import org.sakaiproject.nakamura.auth.trusted.TrustedTokenServiceImpl.TrustedUser;
 
@@ -59,12 +61,14 @@ import javax.servlet.http.HttpSession;
  */
 public class TrustedAuthenticationHandlerTest {
   private TrustedTokenServiceImpl trustedTokenService;
+  private DynamicContentResponseCache dynamicContentResponseCache;
   private List<Object> mocks = new ArrayList<Object>();
 
   @Before
   public void before() throws NoSuchAlgorithmException, InvalidKeyException, IllegalStateException, UnsupportedEncodingException {
     mocks.clear();
     trustedTokenService = new TrustedTokenServiceImpl();
+    dynamicContentResponseCache = createMock(DynamicContentResponseCache.class);
 
     ClusterTrackingService clusterTrackingService = createMock(ClusterTrackingService.class);
     CacheManagerService cacheManagerService = createMock(CacheManagerService.class);
@@ -101,7 +105,13 @@ public class TrustedAuthenticationHandlerTest {
   @Test
   public void testRequestCredentials() throws Exception {
     TrustedAuthenticationHandler handler = new TrustedAuthenticationHandler();
-    assertFalse(handler.requestCredentials(null, null));
+    handler.dynamicContentResponseCache = dynamicContentResponseCache;
+    HttpServletRequest request = createMock(HttpServletRequest.class);
+    EasyMock.expect(request.getRemoteUser()).andReturn("ieb");
+    dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, "ieb");
+    EasyMock.expectLastCall();
+    replay();
+    assertFalse(handler.requestCredentials(request, null));
   }
 
   @Test
@@ -164,11 +174,15 @@ public class TrustedAuthenticationHandlerTest {
     EasyMock.expect(request.getSession(false)).andReturn(session);
     EasyMock.expect(session.getAttribute(TrustedTokenService.SA_AUTHENTICATION_CREDENTIALS)).andReturn(null);
 
+    EasyMock.expect(request.getRemoteUser()).andReturn("ieb");
+    dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, "ieb");
+    EasyMock.expectLastCall();
     // and this time with some Auth
 
     replay();
     TrustedAuthenticationHandler trustedAuthenticationHandler = new TrustedAuthenticationHandler();
     trustedAuthenticationHandler.trustedTokenService = trustedTokenService;
+    trustedAuthenticationHandler.dynamicContentResponseCache = dynamicContentResponseCache;
 
     AuthenticationInfo info = trustedAuthenticationHandler.extractCredentials(request, response);
     Assert.assertNotNull(info);

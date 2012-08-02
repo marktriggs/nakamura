@@ -49,7 +49,7 @@ public class PageMigrator {
     JSONArray columns = new JSONArray();
     for (int i = 0; i < columnCount; i++) {
       JSONObject column = new JSONObject();
-      column.put("width", 1 / columnCount);
+      column.put("width", 1f / columnCount);
       column.put("elements", new JSONArray());
       columns.put(column);
     }

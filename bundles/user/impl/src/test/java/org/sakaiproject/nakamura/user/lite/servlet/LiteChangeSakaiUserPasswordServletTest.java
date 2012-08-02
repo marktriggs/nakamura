@@ -17,6 +17,10 @@
  */
 package org.sakaiproject.nakamura.user.lite.servlet;
 
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import org.apache.sling.api.SlingHttpServletRequest;
@@ -28,12 +32,15 @@ import org.junit.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
 import org.sakaiproject.nakamura.api.lite.ClientPoolException;
 import org.sakaiproject.nakamura.api.lite.Repository;
 import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.SessionAdaptable;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.authorizable.Authorizable;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.user.lite.resource.LiteAuthorizableResourceProvider;
 import org.sakaiproject.nakamura.user.lite.resource.RepositoryHelper;
 
@@ -62,6 +69,9 @@ public class LiteChangeSakaiUserPasswordServletTest {
   @Mock
   private Resource resource;
 
+  @Mock
+  private DynamicContentResponseCache responseCache;
+
   private Repository repository;
   
   private Session session;
@@ -88,6 +98,7 @@ public class LiteChangeSakaiUserPasswordServletTest {
   @Test
   public void test() throws ServletException, IOException {
     LiteChangeSakaiUserPasswordServlet servlet = new LiteChangeSakaiUserPasswordServlet();
+    servlet.responseCache = responseCache;
     when(request.getParameter("oldPwd")).thenReturn("test");
     when(request.getParameter("newPwd")).thenReturn("test1");
     when(request.getParameter("newPwdConfirm")).thenReturn("test1");
@@ -96,6 +107,6 @@ public class LiteChangeSakaiUserPasswordServletTest {
     when(httpResponse.getWriter()).thenReturn(new PrintWriter(new StringWriter()));
 
     servlet.doPost(request, httpResponse);
-    
+
   }
 }

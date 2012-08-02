@@ -19,8 +19,13 @@ package org.sakaiproject.nakamura.files.search;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
+import static junit.framework.Assert.assertTrue;
+import static org.mockito.Matchers.any;
+import static org.mockito.Matchers.anyString;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrInputDocument;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -34,7 +39,11 @@ import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.solr.RepositorySession;
+import org.sakaiproject.nakamura.api.tika.TikaService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,7 +54,11 @@ import java.util.Map;
 @RunWith(MockitoJUnitRunner.class)
 public class PoolContentResourceTypeHandlerTest {
 
+  private final static Logger LOGGER = LoggerFactory.getLogger(PoolContentResourceTypeHandlerTest.class);
+  private final static String RESOURCE_TYPE = "sakai/pooled-content";
   private final static String PATH_TO_FILE = "/path/to/file.json";
+  private final static String PATH_TO_PAGE = "/path/to/page";
+  private final static String PATH_TO_PARENT = "/path/to";
   private final static String[] PROPERTY_EDITOR = new String[] { "user1" };
   private final static String[] PROPERTY_EDITORS = new String[] { "user1", "user2" };
   
@@ -114,7 +127,77 @@ public class PoolContentResourceTypeHandlerTest {
     assertEquals("Invalid editor username", "user1", editors[0]);
     assertEquals("Invalid editor username", "user2", editors[1]);
   }
-  
+
+  @Test
+  public void testResourceType() throws Exception {
+    Map<String, Object> props = buildNonPooledContentProperties();
+    Content content = new Content(PATH_TO_FILE, props);
+
+    when(repositorySession.adaptTo(Session.class)).thenReturn(session);
+    when(session.getContentManager()).thenReturn(contentManager);
+    when(contentManager.get(PATH_TO_FILE)).thenReturn(content);
+    InputStream is = mock(InputStream.class);
+    when(contentManager.getInputStream(anyString())).thenReturn(is);
+
+    PoolContentResourceTypeHandler handler = new PoolContentResourceTypeHandler();
+    Collection<SolrInputDocument> docs = handler.getDocuments(repositorySession, event);
+
+    assertTrue(docs.isEmpty());
+
+    Collection<String> queries = handler.getDeleteQueries(repositorySession, event);
+    assertTrue(queries.isEmpty());
+  }
+
+  @Test
+  public void testDeleteQueries() throws Exception {
+    Map<String, Object> props = buildStandardPooledContentProperties();
+    Content content = new Content(PATH_TO_FILE, props);
+
+    when(repositorySession.adaptTo(Session.class)).thenReturn(session);
+    when(session.getContentManager()).thenReturn(contentManager);
+    when(contentManager.get(PATH_TO_FILE)).thenReturn(content);
+
+    PoolContentResourceTypeHandler handler = new PoolContentResourceTypeHandler();
+
+    Map<String, Object> eventProps = buildEventProperties();
+    eventProps.put("resourceType", RESOURCE_TYPE);
+    Event event = new Event("test", eventProps);
+
+    Collection<String> queries = handler.getDeleteQueries(repositorySession, event);
+    assertTrue(queries.contains("id:" + ClientUtils.escapeQueryChars((String)event.getProperty("path"))));
+  }
+
+  @Test
+  public void testPagedContent() throws Exception {
+    Map<String, Object> props = buildStandardPooledContentProperties();
+
+    props.put("page", "page");
+    props.put("structure0","{\"key\":{\"_ref\":\"page\"}}");
+
+    Content content = new Content(PATH_TO_FILE, props);
+    Content parent = new Content(PATH_TO_PARENT, props);
+    Content page = new Content(PATH_TO_PAGE, props);
+
+    when(repositorySession.adaptTo(Session.class)).thenReturn(session);
+    when(session.getContentManager()).thenReturn(contentManager);
+    when(contentManager.get(PATH_TO_PARENT)).thenReturn(parent);
+    when(contentManager.get(PATH_TO_FILE)).thenReturn(content);
+    when(contentManager.get(PATH_TO_PAGE)).thenReturn(page);
+
+    TikaService tika = mock(TikaService.class);
+    when(tika.parseToString(any(InputStream.class))).thenReturn("indexString");
+
+    PoolContentResourceTypeHandler handler = new PoolContentResourceTypeHandler();
+    handler.tika = tika;
+
+    Collection<SolrInputDocument> docs = handler.getDocuments(repositorySession, event);
+
+    assertEquals(1, docs.size());
+    SolrInputDocument doc = docs.iterator().next();
+
+    assertEquals("indexString", doc.getField("content").getValue());
+  }
+
   /**
    * Build a map of test event properties for the tests.
    * 
@@ -135,6 +218,17 @@ public class PoolContentResourceTypeHandlerTest {
     Map<String, Object> props = new HashMap<String, Object>();
     props.put("sling:resourceType", "sakai/pooled-content");
     props.put("sakai:pooled-content-file-name", "file.json");
+    return props;
+  }
+
+  /**
+   * Build a map of properties that is not sakai/pooled-content.
+   *
+   * @return
+   */
+  private Map<String, Object> buildNonPooledContentProperties() {
+    Map<String, Object> props = new HashMap<String, Object>();
+    props.put("sling:resourceType", "sakai/not-pooled-content");
     return props;
   }
 }

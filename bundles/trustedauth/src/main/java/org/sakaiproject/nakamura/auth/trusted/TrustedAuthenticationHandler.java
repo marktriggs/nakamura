@@ -26,6 +26,8 @@ import org.apache.felix.scr.annotations.Service;
 import org.apache.sling.auth.core.spi.AuthenticationHandler;
 import org.apache.sling.auth.core.spi.AuthenticationInfo;
 import org.sakaiproject.nakamura.api.auth.trusted.TrustedTokenService;
+import org.sakaiproject.nakamura.api.http.cache.DynamicContentResponseCache;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,6 +80,8 @@ public final class TrustedAuthenticationHandler implements AuthenticationHandler
   @Reference
   protected TrustedTokenService trustedTokenService;
 
+  @Reference
+  protected DynamicContentResponseCache dynamicContentResponseCache;
 
   // -------------------- AuthenticationHandler methods --------------------
 
@@ -146,6 +150,7 @@ public final class TrustedAuthenticationHandler implements AuthenticationHandler
     if ( trustedTokenService instanceof TrustedTokenServiceImpl ) {
       ((TrustedTokenServiceImpl) trustedTokenService).dropCredentials(request,response);
     }
+    dynamicContentResponseCache.invalidate(UserConstants.USER_RESPONSE_CACHE, request.getRemoteUser());
     request.setAttribute(RA_AUTHENTICATION_INFO, null);
     request.setAttribute(RA_AUTHENTICATION_TRUST, null);
 

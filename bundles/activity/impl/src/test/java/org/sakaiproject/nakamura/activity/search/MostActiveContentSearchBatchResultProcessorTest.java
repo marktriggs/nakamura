@@ -83,6 +83,7 @@ public class MostActiveContentSearchBatchResultProcessorTest {
   }
 
   // TODO: reenable and get working @Test
+  @SuppressWarnings("unchecked")
   public void testWritingStopsAfterTimeWindow() throws Exception {
     Calendar today = Calendar.getInstance();
     Node firstNode = prepareAnActivityNode("nodeId#1", today);
@@ -120,6 +121,7 @@ public class MostActiveContentSearchBatchResultProcessorTest {
   }
 
   // TODO: reenable and get working @Test
+  @SuppressWarnings("unchecked")
   public void testExceptionDoesNotStopTheFeed() throws Exception {
     Calendar today = Calendar.getInstance();
 
@@ -146,6 +148,7 @@ public class MostActiveContentSearchBatchResultProcessorTest {
   }
 
   // TODO: reenable and get working @Test
+  @SuppressWarnings("unchecked")
   public void testCanCountProperly() throws Exception {
     Node myPopularResource = prepareAResourceNode("fastest-cars.doc");
     resourceNodes.put("node#1", myPopularResource);

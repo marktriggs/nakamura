@@ -37,6 +37,7 @@ import org.sakaiproject.nakamura.api.resource.AbstractSafeMethodsServletResource
 import org.sakaiproject.nakamura.api.resource.SafeServletResourceHandler;
 import org.sakaiproject.nakamura.api.resource.lite.SparseContentResource;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
+import org.sakaiproject.nakamura.util.ServletUtils;
 import org.sakaiproject.nakamura.version.VersionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -123,18 +124,9 @@ public class ListVersionsServletHandler extends AbstractSafeMethodsServletResour
       response.setContentType("application/json");
       response.setCharacterEncoding("UTF-8");
 
-      boolean tidy = false;
-      String[] selectors = request.getRequestPathInfo().getSelectors();
-      for (String selector : selectors) {
-        if ("tidy".equals(selector)) {
-          tidy = true;
-          break;
-        }
-      }
-
       Writer writer = response.getWriter();
       ExtendedJSONWriter write = new ExtendedJSONWriter(writer);
-      write.setTidy(tidy);
+      write.setTidy(ServletUtils.isTidy(request));
       write.object();
       write.key(JSON_PATH);
       write.value(node.getPath());

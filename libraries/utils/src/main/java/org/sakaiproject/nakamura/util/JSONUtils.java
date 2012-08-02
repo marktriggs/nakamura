@@ -123,7 +123,7 @@ public class JSONUtils {
    * @throws JSONException
    */
   private static Object toJavaObject(Object maybeJson) throws JSONException {
-    if (maybeJson == null || maybeJson.equals(null))
+    if (maybeJson == null)
       return null;
     if (maybeJson instanceof JSONObject) {
       return toMap((JSONObject) maybeJson);

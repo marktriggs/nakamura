@@ -19,11 +19,17 @@ package org.sakaiproject.nakamura.resource.lite.servlet.post.operations;
 
 import org.apache.sling.servlets.post.Modification;
 import org.sakaiproject.nakamura.api.lite.Repository;
+import org.sakaiproject.nakamura.api.lite.Session;
 import org.sakaiproject.nakamura.api.lite.StorageClientException;
 import org.sakaiproject.nakamura.api.lite.StorageClientUtils;
 import org.sakaiproject.nakamura.api.lite.accesscontrol.AccessDeniedException;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.AclModification.Operation;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.Permissions;
+import org.sakaiproject.nakamura.api.lite.accesscontrol.Security;
+import org.sakaiproject.nakamura.api.lite.authorizable.Group;
+import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
-import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.resource.CopyCleaner;
 import org.sakaiproject.nakamura.api.resource.MoveCleaner;
 
@@ -48,29 +54,29 @@ public abstract class AbstractBasicLtiCleaner implements CopyCleaner, MoveCleane
    * 
    * @param widgetFromPath The source path of the BasicLTI widget that was copied or moved.
    * @param widgetToPath The destination path of the BasicLTI widget that was copied or moved
-   * @param cm
+   * @param session
    * @return
    * @throws StorageClientException
    * @throws AccessDeniedException
    */
-  public abstract List<Modification> doClean(String widgetFromPath, String widgetToPath, ContentManager cm)
-      throws StorageClientException, AccessDeniedException;
+  public abstract List<Modification> doClean(String widgetFromPath, String widgetToPath,
+      Session session) throws StorageClientException, AccessDeniedException;
   
   /**
    * @return the repository.
    */
   protected abstract Repository getRepository();
-  
+
   /**
    * {@inheritDoc}
-   * @see org.sakaiproject.nakamura.api.resource.CopyCleaner#clean(java.lang.String, java.lang.String, org.sakaiproject.nakamura.api.lite.content.ContentManager)
+   * @see org.sakaiproject.nakamura.api.resource.CopyCleaner#clean(java.lang.String, java.lang.String, org.sakaiproject.nakamura.api.lite.Session)
    */
   @Override
-  public final List<Modification> clean(String fromPath, String toPath, ContentManager cm)
+  public final List<Modification> clean(String fromPath, String toPath, Session session)
       throws StorageClientException, AccessDeniedException {
-    Content toContent = cm.get(toPath);
+    Content toContent = session.getContentManager().get(toPath);
     if (toContent != null && isBasicLtiWidget(toContent)) {
-      return doClean(fromPath, toPath, cm);
+      return doClean(fromPath, toPath, session);
     }
     return Collections.emptyList();
   }
@@ -85,6 +91,26 @@ public abstract class AbstractBasicLtiCleaner implements CopyCleaner, MoveCleane
     return StorageClientUtils.newPath(widgetPath, LTI_KEYS_NODE);
   }
 
+  /**
+   * Lock the node at the given path down to the admin session.
+   * 
+   * @param adminSession
+   * @param nodePath
+   * @throws StorageClientException 
+   * @throws AccessDeniedException 
+   */
+  protected final void lockDownKeys(Session adminSession, String widgetPath, String currentUserId)
+      throws StorageClientException, AccessDeniedException {
+    String ltiKeysPath = getLtiKeyNode(widgetPath);
+    adminSession.getAccessControlManager().setAcl(Security.ZONE_CONTENT, ltiKeysPath, new AclModification[] {
+        new AclModification(AclModification.denyKey(User.ANON_USER), Permissions.ALL.getPermission(),
+            Operation.OP_REPLACE),
+        new AclModification(AclModification.denyKey(Group.EVERYONE), Permissions.ALL.getPermission(),
+            Operation.OP_REPLACE),
+        new AclModification(AclModification.denyKey(currentUserId), Permissions.ALL.getPermission(),
+            Operation.OP_REPLACE) });
+  }
+  
   /**
    * Determine if the given piece of content is the root of a basic lti widget.
    * 

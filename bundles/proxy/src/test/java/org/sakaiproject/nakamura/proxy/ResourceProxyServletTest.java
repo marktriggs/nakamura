@@ -35,6 +35,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.runners.MockitoJUnitRunner;
+import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.proxy.ProxyClientService;
 import org.sakaiproject.nakamura.api.proxy.ProxyPostProcessor;
 import org.sakaiproject.nakamura.api.proxy.ProxyPreProcessor;
@@ -144,6 +145,7 @@ public class ResourceProxyServletTest {
   @Test
   public void returnsAProxiedGet() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -162,6 +164,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canDoHeaderBasicAuth() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -181,6 +184,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canDoParameterBasicAuth() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -207,6 +211,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canPostWithAContentBody() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -225,6 +230,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canPutWithAContentBody() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -244,6 +250,7 @@ public class ResourceProxyServletTest {
   @Test
   public void conveysParamsToTheProxy() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -264,6 +271,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canInvokePreProcessor() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -286,6 +294,7 @@ public class ResourceProxyServletTest {
   @Test
   public void canInvokePostProcessor() throws Exception {
     // given
+    requestIsNotAnonymous();
     requestReturnsAResource();
     resourceWithLegitimatePath();
     resourceReturnsANode();
@@ -304,6 +313,20 @@ public class ResourceProxyServletTest {
 
     HashMap<String, Object> map = new HashMap<String, Object>();
     verify(proxyPostProcessor).process(map, response, proxyResponse);
+  }
+
+  @Test
+  public void rejectAnonymous() throws Exception {
+    // given
+    requestReturnsAResource();
+    resourceWithLegitimatePath();
+    requestIsAnonymous();
+
+    // when
+    servlet.doGet(request, response);
+
+    // then
+    verify(response).sendError(eq(HttpServletResponse.SC_FORBIDDEN), anyString());
   }
 
   private void nodeHasSakaiPostprocessorProperty() throws Exception {
@@ -370,6 +393,12 @@ public class ResourceProxyServletTest {
   }
   private void requestReturnsParameterMap() {
     when(request.getRequestParameterMap()).thenReturn(parameterMap);
+  }
+  private void requestIsAnonymous() {
+    when(request.getRemoteUser()).thenReturn(User.ANON_USER);
+  }
+  private void requestIsNotAnonymous() {
+    when(request.getRemoteUser()).thenReturn("alice");
   }
   private void requestReturnsAResource() {
     when(request.getResource()).thenReturn(resource);

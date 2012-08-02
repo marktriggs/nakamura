@@ -31,7 +31,9 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.felix.scr.annotations.Activate;
 import org.apache.felix.scr.annotations.Component;
 import org.apache.felix.scr.annotations.Deactivate;
+import org.apache.felix.scr.annotations.Property;
 import org.apache.felix.scr.annotations.Reference;
+import org.apache.sling.commons.osgi.PropertiesUtil;
 import org.apache.solr.client.solrj.util.ClientUtils;
 import org.apache.solr.common.SolrInputDocument;
 import org.osgi.service.event.Event;
@@ -43,6 +45,7 @@ import org.sakaiproject.nakamura.api.lite.authorizable.AuthorizableManager;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
 import org.sakaiproject.nakamura.api.message.MessageConstants;
+import org.sakaiproject.nakamura.api.resource.DateParser;
 import org.sakaiproject.nakamura.api.solr.IndexingHandler;
 import org.sakaiproject.nakamura.api.solr.QoSIndexHandler;
 import org.sakaiproject.nakamura.api.solr.RepositorySession;
@@ -51,12 +54,9 @@ import org.sakaiproject.nakamura.util.PathUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,20 +69,24 @@ import java.util.Set;
 public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler {
   private static final Logger LOGGER = LoggerFactory.getLogger(MessageIndexingHandler.class);
 
-  /* 
+  /*
    * TODO: This conversion is currently a work-around due to data-type inconsistency found in the
    * sakai:message property. When a message is first created the property is serialized as a
    * Calendar, but some time later it ends up being changed to a string. To handle this inconsistency
    * we need a secondary check (if it is not a Calendar object) to convert it to date from String.
-   * This formatter is the default Calendar.toString() format that ends up being persisted.
-   * 
+   * The below format is the default Calendar.toString() format that ends up being persisted usually.
+   *       EEE MMM dd yyyy HH:mm:ss 'GMT'Z
    * e.g., Tue Apr 10 2012 13:39:50 GMT-0400
-   * 
+   *
+   * UC Berkeley also seeing in discussion messages after migration to 1.3.0
+   *       yyyy-MM-dd'T'HH:mm:ss.SSSZ
+   * e.g.  2012-04-25T18:14:32-0700
+   * now using the util DateParser to handle parsing multiple formats
+   * including the two above.  see KERN-3022
+   *
    * This is only to side-step data-migration for the 1.2.0 release.
    */
-  private static final SimpleDateFormat SAKAI_CREATED_DATE_CONVERSION = new SimpleDateFormat(
-      "EEE MMM dd yyyy HH:mm:ss 'GMT'Z");
-  
+
   private static final Map<String, String> WHITELISTED_PROPS;
   static {
     Builder<String,String> propBuilder = ImmutableMap.builder();
@@ -105,14 +109,30 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
 
   private static final Set<String> CONTENT_TYPES = Sets
       .newHashSet(MessageConstants.SAKAI_MESSAGE_RT);
+  
+//  borrowed from SparsePostServlet to provide more comprehensive date parsing
+  @Property({ "EEE MMM dd yyyy HH:mm:ss 'GMT'Z", "ISO8601", "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+    "yyyy-MM-dd'T'HH:mm:ss", "yyyy-MM-dd", "dd.MM.yyyy HH:mm:ss", "dd.MM.yyyy" })
+  private static final String PROP_DATE_FORMATS = "message.indexing.dateFormats";
 
   @Reference(target = "(type=sparse)")
   private ResourceIndexingService resourceIndexingService;
+
+  protected DateParser dateParser;
 
   @Activate
   public void activate(Map<String, Object> properties) throws Exception {
     for (String type : CONTENT_TYPES) {
       resourceIndexingService.addHandler(type, this);
+    }
+    dateParser = new DateParser();
+    String[] dateFormats = PropertiesUtil.toStringArray(properties.get(PROP_DATE_FORMATS), new String[0]);
+    for (String dateFormat : dateFormats) {
+      try {
+        dateParser.register(dateFormat);
+      } catch (Throwable t) {
+        LOGGER.warn("activate: Ignoring format {} because it is invalid: {}", dateFormat, t);
+      }
     }
   }
 
@@ -121,6 +141,7 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
     for (String type : CONTENT_TYPES) {
       resourceIndexingService.removeHandler(type, this);
     }
+    dateParser = null;
   }
 
   /**
@@ -128,6 +149,7 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
    *
    * @see org.sakaiproject.nakamura.api.solr.QoSIndexHandler#getTtl(org.osgi.service.event.Event)
    */
+  @Override
   public int getTtl(Event event) {
     // have to be > 0 based on the logic in ContentEventListener.
     // see org.sakaiproject.nakamura.solr.Utils.defaultMax(int)
@@ -140,6 +162,7 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
    * @see org.sakaiproject.nakamura.api.solr.IndexingHandler#getDocuments(org.sakaiproject.nakamura.api.solr.RepositorySession,
    *      org.osgi.service.event.Event)
    */
+  @Override
   public Collection<SolrInputDocument> getDocuments(RepositorySession repositorySession,
       Event event) {
     String path = (String) event.getProperty(IndexingHandler.FIELD_PATH);
@@ -173,22 +196,14 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
             created = (Calendar) createdObj;
           } else {
             LOGGER.info("Parsing string created date for message at path '{}' because it's stored as string", path);
-            try {
-              Date date = SAKAI_CREATED_DATE_CONVERSION.parse(String.valueOf(createdObj));
-              if (date != null) {
-                created = Calendar.getInstance();
-                created.setTime(date);
-              }
-            } catch (ParseException e) {
-            }
+            created = dateParser.parse(String.valueOf(createdObj));
           }
-          
           if (created != null) {
             doc.addField(Content.CREATED_FIELD, created.getTimeInMillis());
           } else {
             LOGGER.warn("Did not index message creation date due to no suitable sakai:message value.");
           }
-          
+
           //index sender's first and last name
           AuthorizableManager am = session.getAuthorizableManager();
           String senderAuthId = (String)content.getProperty("sakai:from");
@@ -246,6 +261,7 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
    * @see org.sakaiproject.nakamura.api.solr.IndexingHandler#getDeleteQueries(org.sakaiproject.nakamura.api.solr.RepositorySession,
    *      org.osgi.service.event.Event)
    */
+  @Override
   public Collection<String> getDeleteQueries(RepositorySession repositorySession,
       Event event) {
     List<String> retval = Collections.emptyList();
@@ -261,7 +277,7 @@ public class MessageIndexingHandler implements IndexingHandler, QoSIndexHandler 
 
   /**
    * Given the path of a piece of content, determine if the content is "temporary".
-   * 
+   *
    * @param path The path of the content
    * @return Whether or not the content is stored in a "temporary" path.
    */

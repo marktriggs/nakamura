@@ -67,6 +67,8 @@ import org.sakaiproject.nakamura.api.lite.authorizable.Group;
 import org.sakaiproject.nakamura.api.lite.authorizable.User;
 import org.sakaiproject.nakamura.api.lite.content.Content;
 import org.sakaiproject.nakamura.api.lite.content.ContentManager;
+import org.sakaiproject.nakamura.api.user.AuthorizableCountChanger;
+import org.sakaiproject.nakamura.api.user.UserConstants;
 import org.sakaiproject.nakamura.util.ExtendedJSONWriter;
 import org.sakaiproject.nakamura.util.LitePersonalUtils;
 import org.slf4j.Logger;
@@ -98,6 +100,8 @@ public class ConnectionManagerImpl implements ConnectionManager {
   @Reference
   protected transient Repository repository;
 
+  @Reference
+  protected AuthorizableCountChanger authorizableCountChanger;
 
   private static Map<TransitionKey, StatePair> stateMap = new HashMap<TransitionKey, StatePair>();
 
@@ -353,9 +357,8 @@ public class ConnectionManagerImpl implements ConnectionManager {
       AuthorizableManager authorizableManager = session.getAuthorizableManager();
       Group g = (Group) authorizableManager.findAuthorizable("g-contacts-" + thisAu.getId());
       g.removeMember(otherAu.getId());
-      thisAu.removeProperty("contactsCount");
       authorizableManager.updateAuthorizable(g);
-      authorizableManager.updateAuthorizable(thisAu);
+      authorizableCountChanger.notify(UserConstants.CONTACTS_PROP, thisAu.getId());
     }
   }
 
@@ -375,9 +378,8 @@ public class ConnectionManagerImpl implements ConnectionManager {
     AuthorizableManager authorizableManager = session.getAuthorizableManager();
     Group g = (Group) authorizableManager.findAuthorizable("g-contacts-" + thisAu.getId());
     g.addMember(otherAu.getId());
-    thisAu.removeProperty("contactsCount");
     authorizableManager.updateAuthorizable(g);
-    authorizableManager.updateAuthorizable(thisAu);
+    authorizableCountChanger.notify(UserConstants.CONTACTS_PROP, thisAu.getId());
   }
 
   /**

@@ -30,6 +30,7 @@ import org.sakaiproject.nakamura.api.doc.ServiceMethod;
 import org.sakaiproject.nakamura.api.doc.ServiceParameter;
 import org.sakaiproject.nakamura.api.doc.ServiceResponse;
 import org.sakaiproject.nakamura.doc.DocumentationWriter;
+import org.sakaiproject.nakamura.util.StringUtils;
 
 import java.io.IOException;
 
@@ -77,7 +78,7 @@ public class ProxyDocumentationServlet extends SlingSafeMethodsServlet {
     DocumentationWriter docWriter = new DocumentationWriter("Proxy nodes", response
         .getWriter());
     try {
-      if (path != null) {
+      if (path != null && !StringUtils.isEmpty(path.getString())) {
         docWriter.writeSearchInfo(path.getString(), session);
       } else {
         String query = "//*[@sling:resourceType='sakai/proxy'] order by sakai:title";

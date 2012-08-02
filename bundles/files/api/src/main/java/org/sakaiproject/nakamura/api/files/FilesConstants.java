@@ -140,6 +140,11 @@ public interface FilesConstants {
   public static final String POOLED_CONTENT_COMMENT = "comment";
 
   /**
+   * The name of the property that holds the count of comments on this content
+   */
+  public static final String POOLED_CONTENT_COMMENT_COUNT = "commentCount";
+
+  /**
    * Property on the file node indicating who the content was created for.
    */
   public static final String POOLED_CONTENT_CREATED_FOR = "sakai:pool-content-created-for";

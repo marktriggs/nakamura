@@ -215,7 +215,7 @@ public class RelatedContactsSearchBatchResultProcessor implements
         // TODO add some randomness; probably through solr.RandomSortField
         final StringBuilder sourceQuery = new StringBuilder("resourceType:");
         sourceQuery.append(AUTHORIZABLE_RT);
-        sourceQuery.append(" AND type:u AND id:([* TO *] NOT ");
+        sourceQuery.append(" AND type:u AND -id:(");
         sourceQuery.append(ClientUtils.escapeQueryChars(user));
         sourceQuery.append(")");
         final Query query = new Query(Query.SOLR, sourceQuery.toString(),

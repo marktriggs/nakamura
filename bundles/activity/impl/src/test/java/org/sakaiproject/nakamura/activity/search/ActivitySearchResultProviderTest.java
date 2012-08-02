@@ -59,7 +59,7 @@ public class ActivitySearchResultProviderTest extends AbstractEasyMockTest {
     ActivitySearchPropertyProvider provider = new ActivitySearchPropertyProvider();
     Map<String, String> propertiesMap = new HashMap<String, String>();
     provider.loadUserProperties(request, propertiesMap);
-    String actual = propertiesMap.get("_myFeed");
+    String actual = propertiesMap.get("_route");
     String expected = ClientUtils.escapeQueryChars(LitePersonalUtils.PATH_AUTHORIZABLE
         + "admin/private/" + ActivityConstants.ACTIVITY_FEED_NAME);
     assertEquals(expected, actual);
@@ -82,7 +82,7 @@ public class ActivitySearchResultProviderTest extends AbstractEasyMockTest {
     ActivitySearchPropertyProvider provider = new ActivitySearchPropertyProvider();
     Map<String, String> propertiesMap = new HashMap<String, String>();
     provider.loadUserProperties(request, propertiesMap);
-    String actual = propertiesMap.get("_myFeed");
+    String actual = propertiesMap.get("_route");
     String expected = ClientUtils.escapeQueryChars(LitePersonalUtils.PATH_AUTHORIZABLE
         + "anonymous/private/" + ActivityConstants.ACTIVITY_FEED_NAME);
     assertEquals(expected, actual);
