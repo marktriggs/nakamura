@@ -1,0 +1,13 @@
+{
+    "sling:resourceType": "sakai/proxy",
+    "sakai:request-proxy-endpoint": "http://api.brightcove.com/services/library?command=find_all_videos&token=${config.brightcove_read_token}",
+    "sakai:request-proxy-method": "GET",
+    "sakai:title": "BrightCove - Find all videos",
+    "sakai:shortDescription": "Find all videos in BrightCove using a read token.",
+    "sakai:description": [
+        "This proxy will get the public contacts from a user.",
+        "This template requires an API key. It can be defined at ./load/org.sakaiproject.nakamura.proxy.ProxyClientServiceImpl.cfg<br /><code>brightcove_read_token=93a86c06dc382a19bff0d4d24872ecab</code>"
+    ],
+     "sakai:parameters" : [
+    ]
+}

@@ -160,6 +160,14 @@
        </modules>
     </profile>
     <profile>
+       <id>media</id>
+       <modules>
+        <module>contrib/media/common</module>
+        <module>contrib/media/brightcove</module>
+        <module>contrib/media/matterhorn</module>
+       </modules>
+    </profile>
+    <profile>
        <!-- rebundle the standalone server, this must run after the build -->
        <id>bundle</id>
        <activation>
